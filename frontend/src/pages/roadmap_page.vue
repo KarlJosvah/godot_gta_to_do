@@ -24,7 +24,7 @@
       @click.self="closeLightbox"
     >
       <span class="lightbox-close" @click="closeLightbox">&times;</span>
-      <img class="lightbox-content" :src="lightboxImg" alt="Enlarged Image" />
+      <img class="lightbox-content" :src="lightboxImg.startsWith('http') ? lightboxImg : `http://localhost:3000${lightboxImg}`" alt="Enlarged Image" />
       <div class="lightbox-caption">{{ lightboxCaption }}</div>
     </div>
 
@@ -175,14 +175,13 @@ const closeModal = () => {
   modalOpen.value = false;
 };
 
-const handleModalSubmit = async (data: { title: string; description: string; image_urls: string[] }) => {
+const handleModalSubmit = async (formData: FormData) => {
   try {
     if (isEditMode.value && modalPhaseData.value) {
       // Patch Phase
       const res = await fetch(`${API_BASE}/phases/${modalPhaseData.value.id}`, {
         method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
+        body: formData
       });
       if (res.ok) {
         closeModal();
@@ -192,8 +191,7 @@ const handleModalSubmit = async (data: { title: string; description: string; ima
       // Post Phase
       const res = await fetch(`${API_BASE}/phases`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
+        body: formData
       });
       if (res.ok) {
         const newPhase = await res.json();

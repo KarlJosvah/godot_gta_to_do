@@ -11,3 +11,6 @@ coverage/
 
 # Compiled binary / native dependencies addon output
 build/Release
+
+# upload
+uploads/

@@ -40,7 +40,7 @@
           class="gallery-img-container"
           @click="$emit('open-lightbox', url, `${step.title} - Step Image ${imgIdx + 1}`)"
         >
-          <img :src="url" :alt="step.title" />
+          <img :src="url.startsWith('http') ? url : `http://localhost:3000${url}`" :alt="step.title" />
         </div>
       </div>
     </div>

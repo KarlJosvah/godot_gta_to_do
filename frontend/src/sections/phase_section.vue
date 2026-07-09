@@ -24,7 +24,7 @@
           class="gallery-img-container"
           @click="$emit('open-lightbox', url, `${phase.title} - Image ${idx + 1}`)"
         >
-          <img :src="url" :alt="phase.title" />
+          <img :src="url.startsWith('http') ? url : `http://localhost:3000${url}`" :alt="phase.title" />
         </div>
       </div>
 

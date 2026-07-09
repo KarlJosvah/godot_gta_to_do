@@ -6,6 +6,9 @@ import { SeederModule } from './database/seeder.module';
 import { Phase } from './phases/entities/phase.entity';
 import { Step } from './steps/entities/step.entity';
 
+import { ServeStaticModule } from '@nestjs/serve-static';
+import { join } from 'path';
+
 @Module({
   imports: [
     TypeOrmModule.forRoot({
@@ -13,6 +16,10 @@ import { Step } from './steps/entities/step.entity';
       url: 'mongodb://localhost:27017/gta_todo',
       entities: [Phase, Step],
       synchronize: true,
+    }),
+    ServeStaticModule.forRoot({
+      rootPath: join(__dirname, '..', 'public'),
+      exclude: ['/api/(.*)'],
     }),
     PhasesModule,
     StepsModule,

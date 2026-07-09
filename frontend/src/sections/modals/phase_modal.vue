@@ -28,14 +28,26 @@
           ></textarea>
         </div>
 
+        <!-- Image Upload Input Area -->
         <div class="form-group">
-          <label for="phase-images">Images (Comma-separated URLs)</label>
+          <label for="phase-files">Upload Images</label>
           <input 
-            id="phase-images" 
-            type="text" 
-            v-model="form.imageUrlsString" 
-            placeholder="/images/phase1.png, /images/phase2.png" 
+            id="phase-files" 
+            type="file" 
+            multiple 
+            accept="image/*"
+            @change="handleFileChange"
+            class="file-input"
           />
+          <div class="file-preview-list" v-if="previewUrls.length > 0">
+            <div 
+              v-for="(url, idx) in previewUrls" 
+              :key="idx" 
+              class="preview-item"
+            >
+              <img :src="url.startsWith('blob:') || url.startsWith('http') ? url : `http://localhost:3000${url}`" alt="Preview Image" />
+            </div>
+          </div>
         </div>
 
         <footer class="modal-footer">
@@ -89,7 +101,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, computed, watch } from 'vue';
+import { reactive, computed, watch, ref } from 'vue';
 
 interface Phase {
   id: string;
@@ -106,23 +118,23 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: 'close'): void;
-  (e: 'submit', data: { title: string; description: string; image_urls: string[] }): void;
+  (e: 'submit', data: FormData): void;
   (e: 'delete'): void;
 }>();
 
 const form = reactive({
   title: '',
-  description: '',
-  imageUrlsString: ''
+  description: ''
 });
 
+const selectedFiles = ref<File[]>([]);
+const previewUrls = ref<string[]>([]);
 const showConfirmModal = ref(false);
 
 // Capture initial state to track alterations
 const initialFormState = reactive({
   title: '',
-  description: '',
-  imageUrlsString: ''
+  description: ''
 });
 
 // Watch phase changes to populate inputs
@@ -132,40 +144,50 @@ watch(
     if (props.isEditMode && newPhase) {
       form.title = newPhase.title;
       form.description = newPhase.description;
-      form.imageUrlsString = (newPhase.image_urls || []).join(', ');
+      previewUrls.value = [...(newPhase.image_urls || [])];
     } else {
       form.title = '';
       form.description = '';
-      form.imageUrlsString = '';
+      previewUrls.value = [];
     }
+    selectedFiles.value = [];
     initialFormState.title = form.title;
     initialFormState.description = form.description;
-    initialFormState.imageUrlsString = form.imageUrlsString;
   },
   { immediate: true }
 );
 
-import { ref } from 'vue';
+const handleFileChange = (e: Event) => {
+  const target = e.target as HTMLInputElement;
+  if (target.files) {
+    const files = Array.from(target.files);
+    selectedFiles.value = files;
+    
+    // Create preview URLs
+    previewUrls.value = files.map((file) => URL.createObjectURL(file));
+  }
+};
 
 const isSaveDisabled = computed(() => {
   if (!props.isEditMode) return false;
+  // If files are selected, allow saving. Otherwise check title/description changes.
+  if (selectedFiles.value.length > 0) return false;
   return (
     form.title === initialFormState.title &&
-    form.description === initialFormState.description &&
-    form.imageUrlsString === initialFormState.imageUrlsString
+    form.description === initialFormState.description
   );
 });
 
 const submitForm = () => {
-  const imageUrls = form.imageUrlsString
-    ? form.imageUrlsString.split(',').map((url) => url.trim()).filter((url) => url.length > 0)
-    : [];
-
-  emit('submit', {
-    title: form.title,
-    description: form.description,
-    image_urls: imageUrls
+  const formData = new FormData();
+  formData.append('title', form.title);
+  formData.append('description', form.description);
+  
+  selectedFiles.value.forEach((file) => {
+    formData.append('files', file);
   });
+
+  emit('submit', formData);
 };
 
 const triggerConfirmDelete = () => {
@@ -277,6 +299,34 @@ const confirmDelete = () => {
 .form-group input[type="text"]:focus,
 .form-group textarea:focus {
   border-color: var(--accent-color);
+}
+
+.file-input {
+  display: block;
+  width: 100%;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.file-preview-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.preview-item {
+  width: 80px;
+  height: 45px;
+  border-radius: 0.25rem;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+}
+
+.preview-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .modal-footer {
