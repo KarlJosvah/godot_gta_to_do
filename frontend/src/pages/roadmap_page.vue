@@ -5,7 +5,7 @@
       :phases="phases"
       :activePhaseId="activePhaseId"
       @select-phase="selectPhase"
-      @add-phase="openAddModal"
+      @add-phase="openAddPhaseModal"
     />
 
     <!-- Main Phase details section -->
@@ -14,7 +14,9 @@
       :steps="steps"
       @toggle-step="toggleStep"
       @open-lightbox="openLightbox"
-      @edit-phase="openEditModal"
+      @edit-phase="openEditPhaseModal"
+      @add-step="openAddStepModal"
+      @edit-step="openEditStepModal"
     />
 
     <!-- Lightbox Modal -->
@@ -28,14 +30,24 @@
       <div class="lightbox-caption">{{ lightboxCaption }}</div>
     </div>
 
-    <!-- Phase Create / Edit CRUD Modal -->
+    <!-- Phase Create / Edit Modal -->
     <PhaseModal 
-      v-if="modalOpen"
-      :isEditMode="isEditMode"
+      v-if="phaseModalOpen"
+      :isEditMode="isPhaseEditMode"
       :phase="modalPhaseData"
-      @close="closeModal"
-      @submit="handleModalSubmit"
-      @delete="handleModalDelete"
+      @close="closePhaseModal"
+      @submit="handlePhaseModalSubmit"
+      @delete="handlePhaseModalDelete"
+    />
+
+    <!-- Step Create / Edit Modal -->
+    <StepModal 
+      v-if="stepModalOpen"
+      :isEditMode="isStepEditMode"
+      :step="modalStepData"
+      @close="closeStepModal"
+      @submit="handleStepModalSubmit"
+      @delete="handleStepModalDelete"
     />
   </div>
 </template>
@@ -45,6 +57,7 @@ import { ref, onMounted, computed, onUnmounted } from 'vue';
 import PhaseSideSection from '../sections/phase_side_section.vue';
 import PhaseSection from '../sections/phase_section.vue';
 import PhaseModal from '../sections/modals/phase_modal.vue';
+import StepModal from '../sections/modals/step_modal.vue';
 
 interface Phase {
   id: string;
@@ -80,10 +93,15 @@ const lightboxOpen = ref(false);
 const lightboxImg = ref('');
 const lightboxCaption = ref('');
 
-// Modal state
-const modalOpen = ref(false);
-const isEditMode = ref(false);
+// Phase modal state
+const phaseModalOpen = ref(false);
+const isPhaseEditMode = ref(false);
 const modalPhaseData = ref<Phase | null>(null);
+
+// Step modal state
+const stepModalOpen = ref(false);
+const isStepEditMode = ref(false);
+const modalStepData = ref<Step | null>(null);
 
 const activePhase = computed(() => {
   return phases.value.find(p => p.id === activePhaseId.value) || null;
@@ -121,110 +139,125 @@ const selectPhase = async (id: string) => {
   }
 };
 
+const refreshSteps = async () => {
+  if (!activePhaseId.value) return;
+  try {
+    const res = await fetch(`${API_BASE}/phases/${activePhaseId.value}/steps`);
+    steps.value = await res.json();
+    // Also refresh phase done status
+    const pRes = await fetch(`${API_BASE}/phases`);
+    phases.value = await pRes.json();
+  } catch (err) {
+    console.error('Error refreshing steps:', err);
+  }
+};
+
 const toggleStep = async (stepId: string) => {
   try {
     const res = await fetch(`${API_BASE}/steps/${stepId}/toggle`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      }
+      headers: { 'Content-Type': 'application/json' }
     });
     if (res.ok) {
       const data = await res.json();
-      
       const phase = phases.value.find(p => p.id === data.phaseId);
-      if (phase) {
-        phase.done = data.phaseDone;
-      }
-
+      if (phase) phase.done = data.phaseDone;
       const step = steps.value.find(s => s.id === data.stepId);
-      if (step) {
-        step.done = data.stepDone;
-      }
+      if (step) step.done = data.stepDone;
     }
   } catch (err) {
-    console.error('Error toggling step status:', err);
+    console.error('Error toggling step:', err);
   }
 };
 
-// Lightbox callbacks
+// Lightbox
 const openLightbox = (url: string, caption: string) => {
   lightboxImg.value = url;
   lightboxCaption.value = caption;
   lightboxOpen.value = true;
 };
+const closeLightbox = () => { lightboxOpen.value = false; };
 
-const closeLightbox = () => {
-  lightboxOpen.value = false;
-};
-
-// Modal Operations
-const openAddModal = () => {
-  isEditMode.value = false;
+// Phase modal
+const openAddPhaseModal = () => {
+  isPhaseEditMode.value = false;
   modalPhaseData.value = null;
-  modalOpen.value = true;
+  phaseModalOpen.value = true;
 };
-
-const openEditModal = (phase: Phase) => {
-  isEditMode.value = true;
+const openEditPhaseModal = (phase: Phase) => {
+  isPhaseEditMode.value = true;
   modalPhaseData.value = phase;
-  modalOpen.value = true;
+  phaseModalOpen.value = true;
 };
+const closePhaseModal = () => { phaseModalOpen.value = false; };
 
-const closeModal = () => {
-  modalOpen.value = false;
-};
-
-const handleModalSubmit = async (formData: FormData) => {
+const handlePhaseModalSubmit = async (formData: FormData) => {
   try {
-    if (isEditMode.value && modalPhaseData.value) {
-      // Patch Phase
+    if (isPhaseEditMode.value && modalPhaseData.value) {
       const res = await fetch(`${API_BASE}/phases/${modalPhaseData.value.id}`, {
         method: 'PATCH',
         body: formData
       });
-      if (res.ok) {
-        closeModal();
-        await fetchPhases(modalPhaseData.value.id);
-      }
+      if (res.ok) { closePhaseModal(); await fetchPhases(modalPhaseData.value.id); }
     } else {
-      // Post Phase
-      const res = await fetch(`${API_BASE}/phases`, {
-        method: 'POST',
-        body: formData
-      });
+      const res = await fetch(`${API_BASE}/phases`, { method: 'POST', body: formData });
       if (res.ok) {
         const newPhase = await res.json();
-        closeModal();
+        closePhaseModal();
         await fetchPhases(newPhase.id);
       }
     }
-  } catch (err) {
-    console.error('Error submitting form:', err);
-  }
+  } catch (err) { console.error('Error submitting phase form:', err); }
 };
 
-const handleModalDelete = async () => {
+const handlePhaseModalDelete = async () => {
   if (!modalPhaseData.value) return;
-
   try {
-    const res = await fetch(`${API_BASE}/phases/${modalPhaseData.value.id}`, {
-      method: 'DELETE'
-    });
-    if (res.ok) {
-      closeModal();
-      await fetchPhases();
+    const res = await fetch(`${API_BASE}/phases/${modalPhaseData.value.id}`, { method: 'DELETE' });
+    if (res.ok) { closePhaseModal(); await fetchPhases(); }
+  } catch (err) { console.error('Error deleting phase:', err); }
+};
+
+// Step modal
+const openAddStepModal = () => {
+  isStepEditMode.value = false;
+  modalStepData.value = null;
+  stepModalOpen.value = true;
+};
+const openEditStepModal = (step: Step) => {
+  isStepEditMode.value = true;
+  modalStepData.value = step;
+  stepModalOpen.value = true;
+};
+const closeStepModal = () => { stepModalOpen.value = false; };
+
+const handleStepModalSubmit = async (formData: FormData) => {
+  try {
+    if (isStepEditMode.value && modalStepData.value) {
+      const res = await fetch(`${API_BASE}/steps/${modalStepData.value.id}`, {
+        method: 'PATCH',
+        body: formData
+      });
+      if (res.ok) { closeStepModal(); await refreshSteps(); }
+    } else {
+      // Inject the current active phase_id
+      formData.append('phase_id', activePhaseId.value!);
+      const res = await fetch(`${API_BASE}/steps`, { method: 'POST', body: formData });
+      if (res.ok) { closeStepModal(); await refreshSteps(); }
     }
-  } catch (err) {
-    console.error('Error deleting phase:', err);
-  }
+  } catch (err) { console.error('Error submitting step form:', err); }
+};
+
+const handleStepModalDelete = async () => {
+  if (!modalStepData.value) return;
+  try {
+    const res = await fetch(`${API_BASE}/steps/${modalStepData.value.id}`, { method: 'DELETE' });
+    if (res.ok) { closeStepModal(); await refreshSteps(); }
+  } catch (err) { console.error('Error deleting step:', err); }
 };
 
 const handleKeyDown = (e: KeyboardEvent) => {
-  if (e.key === 'Escape') {
-    closeLightbox();
-    closeModal();
-  }
+  if (e.key === 'Escape') { closeLightbox(); closePhaseModal(); closeStepModal(); }
 };
 
 onMounted(() => {
@@ -243,15 +276,13 @@ onUnmounted(() => {
   min-height: 100vh;
 }
 
-/* Lightbox Modal */
+/* Lightbox */
 .lightbox {
   position: fixed;
   z-index: 999;
   padding-top: 5vh;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
+  left: 0; top: 0;
+  width: 100%; height: 100%;
   overflow: auto;
   background-color: rgba(0, 0, 0, 0.95);
   backdrop-filter: blur(8px);
@@ -269,14 +300,11 @@ onUnmounted(() => {
   transition: transform 0.3s ease;
 }
 
-.lightbox.open .lightbox-content {
-  transform: scale(1);
-}
+.lightbox.open .lightbox-content { transform: scale(1); }
 
 .lightbox-close {
   position: absolute;
-  top: 20px;
-  right: 35px;
+  top: 20px; right: 35px;
   color: #f1f1f1;
   font-size: 40px;
   font-weight: bold;
@@ -284,11 +312,7 @@ onUnmounted(() => {
   cursor: pointer;
 }
 
-.lightbox-close:hover,
-.lightbox-close:focus {
-  color: #bbb;
-  text-decoration: none;
-}
+.lightbox-close:hover { color: #bbb; }
 
 .lightbox-caption {
   margin: auto;
@@ -302,8 +326,6 @@ onUnmounted(() => {
 }
 
 @media (max-width: 900px) {
-  .roadmap-page {
-    flex-direction: column;
-  }
+  .roadmap-page { flex-direction: column; }
 }
 </style>

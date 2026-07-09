@@ -4,7 +4,6 @@
       <div class="header-content title-hover-wrapper">
         <div class="title-row">
           <h1>{{ phase.title }}</h1>
-          <!-- Edit Icon beside title, hover class logic -->
           <button class="edit-phase-btn" @click="$emit('edit-phase', phase)">
             <svg class="edit-icon" viewBox="0 0 24 24" width="20" height="20">
               <path fill="currentColor" d="M14.06,9L15,9.94L5.92,19H5V18.08L14.06,9M17.66,3C17.41,3 17.15,3.1 16.96,3.29L15.13,5.12L18.88,8.87L20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18.17,3.09 17.92,3 17.66,3M14.06,6.19L3,17.25V21H6.75L17.81,9.94L14.06,6.19Z" />
@@ -36,7 +35,14 @@
           :step="step"
           @toggle="$emit('toggle-step', $event)"
           @open-lightbox="(url, caption) => $emit('open-lightbox', url, caption)"
+          @edit-step="$emit('edit-step', $event)"
         />
+
+        <!-- Add Step Dashed Button at the bottom -->
+        <div class="add-step-row" @click="$emit('add-step')">
+          <span class="plus-icon">+</span>
+          <span class="btn-text">Add Step</span>
+        </div>
       </div>
     </section>
   </main>
@@ -53,12 +59,17 @@ interface Phase {
   image_urls: string[];
 }
 
+interface StepDetail {
+  text: string;
+  task_type: string;
+}
+
 interface Step {
   id: string;
   phase_id: string;
   title: string;
   task_type: string;
-  details: any[];
+  details: StepDetail[];
   done: number;
   image_urls: string[];
 }
@@ -72,6 +83,8 @@ defineEmits<{
   (e: 'toggle-step', id: string): void;
   (e: 'open-lightbox', url: string, caption: string): void;
   (e: 'edit-phase', phase: Phase): void;
+  (e: 'add-step'): void;
+  (e: 'edit-step', step: Step): void;
 }>();
 </script>
 
@@ -100,7 +113,6 @@ defineEmits<{
   font-weight: 800;
 }
 
-/* Edit icon styling only visible on hover */
 .edit-phase-btn {
   background: none;
   border: none;
@@ -166,6 +178,35 @@ defineEmits<{
   display: flex;
   flex-direction: column;
   gap: 1.5rem;
+}
+
+/* Add Step dashed styling */
+.add-step-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1.5rem;
+  border-radius: 1rem;
+  cursor: pointer;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  border: 2px dashed rgba(255, 255, 255, 0.12);
+  transition: all var(--transition-speed) ease;
+  background-color: transparent;
+  margin-top: 0.5rem;
+}
+
+.add-step-row:hover {
+  border-color: var(--accent-color);
+  color: var(--text-primary);
+  background-color: rgba(99, 102, 241, 0.03);
+}
+
+.plus-icon {
+  font-size: 1.3rem;
+  font-weight: bold;
 }
 
 @media (max-width: 900px) {

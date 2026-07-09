@@ -1,20 +1,29 @@
 <template>
   <div :class="['step-card', { done: step.done === 1 }]">
-    <label class="checkbox-container">
-      <input 
-        type="checkbox" 
-        :checked="step.done === 1"
-        @change="$emit('toggle', step.id)"
-      />
-      <span class="checkmark"></span>
-      <span class="step-title-text">{{ step.title }}</span>
-      <span 
-        v-if="step.task_type !== 'NONE'" 
-        :class="['task-badge', step.task_type.toLowerCase()]"
-      >
-        {{ step.task_type }}
-      </span>
-    </label>
+    <div class="checkbox-row-wrapper">
+      <label class="checkbox-container">
+        <input 
+          type="checkbox" 
+          :checked="step.done === 1"
+          @change="$emit('toggle', step.id)"
+        />
+        <span class="checkmark"></span>
+        <span class="step-title-text">{{ step.title }}</span>
+        <span 
+          v-if="step.task_type !== 'NONE'" 
+          :class="['task-badge', step.task_type.toLowerCase()]"
+        >
+          {{ step.task_type }}
+        </span>
+      </label>
+
+      <!-- Edit icon beside title visible on hover -->
+      <button class="edit-step-btn" @click="$emit('edit-step', step)">
+        <svg class="edit-icon" viewBox="0 0 24 24" width="18" height="18">
+          <path fill="currentColor" d="M14.06,9L15,9.94L5.92,19H5V18.08L14.06,9M17.66,3C17.41,3 17.15,3.1 16.96,3.29L15.13,5.12L18.88,8.87L20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18.17,3.09 17.92,3 17.66,3M14.06,6.19L3,17.25V21H6.75L17.81,9.94L14.06,6.19Z" />
+        </svg>
+      </button>
+    </div>
 
     <div class="step-body">
       <!-- Left Column: Details -->
@@ -70,6 +79,7 @@ defineProps<{
 defineEmits<{
   (e: 'toggle', id: string): void;
   (e: 'open-lightbox', url: string, caption: string): void;
+  (e: 'edit-step', step: Step): void;
 }>();
 </script>
 
@@ -87,13 +97,19 @@ defineEmits<{
   border-color: rgba(16, 185, 129, 0.2);
 }
 
+.checkbox-row-wrapper {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.2rem;
+}
+
 /* Custom Checkbox styling */
 .checkbox-container {
   display: flex;
   align-items: center;
   position: relative;
   padding-left: 2rem;
-  margin-bottom: 1.2rem;
   cursor: pointer;
   font-size: 1.25rem;
   font-weight: 700;
@@ -157,6 +173,30 @@ defineEmits<{
 .step-card.done .step-title-text {
   color: var(--text-secondary);
   text-decoration: line-through;
+}
+
+/* Edit icon styling only visible on hover */
+.edit-step-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  opacity: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.25rem;
+  border-radius: 4px;
+  transition: all var(--transition-speed) ease;
+}
+
+.checkbox-row-wrapper:hover .edit-step-btn {
+  opacity: 1;
+}
+
+.edit-step-btn:hover {
+  color: var(--accent-color);
+  background-color: rgba(255, 255, 255, 0.04);
 }
 
 /* Badges styling */
