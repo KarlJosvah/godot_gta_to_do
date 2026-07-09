@@ -1,0 +1,13 @@
+# NestJS specifics
+dist/
+dist-seed/
+build/
+tsconfig.tsbuildinfo
+
+# Test files
+cov/
+coverage/
+.nyc_output
+
+# Compiled binary / native dependencies addon output
+build/Release

@@ -1,0 +1,10 @@
+# VueJS / Vite specifics
+dist/
+dist-ssr/
+*.local
+
+# Cypress / Playwright test screens & recordings
+cypress/videos/
+cypress/screenshots/
+playwright-report/
+test-results/
