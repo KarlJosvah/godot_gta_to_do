@@ -4,6 +4,12 @@
       <div class="logo">GTA ROADMAP</div>
     </div>
     <nav class="phases-nav">
+      <!-- Add Phase Dashed Row at the very top -->
+      <div class="add-phase-row" @click="$emit('add-phase')">
+        <span class="plus-icon">+</span>
+        <span class="btn-text">Add Phase</span>
+      </div>
+
       <PhaseRowComponent 
         v-for="phase in phases" 
         :key="phase.id"
@@ -11,12 +17,6 @@
         :isActive="activePhaseId === phase.id"
         @select="$emit('select-phase', phase.id)"
       />
-      
-      <!-- Add Phase Dashed Row -->
-      <div class="add-phase-row" @click="$emit('add-phase')">
-        <span class="plus-icon">+</span>
-        <span class="btn-text">Add Phase</span>
-      </div>
     </nav>
   </aside>
 </template>
@@ -92,6 +92,7 @@ defineEmits<{
   border: 2px dashed rgba(255, 255, 255, 0.12);
   transition: all var(--transition-speed) ease;
   background-color: transparent;
+  margin-bottom: 0.5rem;
 }
 
 .add-phase-row:hover {
