@@ -3,23 +3,23 @@ import { ObjectId } from 'mongodb';
 
 export class PhaseImage {
   @Column()
-  url: string;
+  url!: string;
 }
 
 @Entity('phases')
 export class Phase {
   @ObjectIdColumn()
-  _id: ObjectId;
+  _id!: ObjectId;
 
   @Column()
-  title: string;
+  title!: string;
 
   @Column({ nullable: true })
-  description: string;
+  description!: string;
 
   @Column({ default: 0 })
-  done: number; // 0 or 1
+  done!: number; // 0 or 1
 
   @Column(() => PhaseImage)
-  images: PhaseImage[];
+  images!: PhaseImage[];
 }
