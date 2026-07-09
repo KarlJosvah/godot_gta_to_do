@@ -36,7 +36,7 @@ export class SeederService implements OnApplicationBootstrap {
     const lines = content.split('\n');
 
     let currentPhase: Phase | null = null;
-    let currentStepData: { title: string; details: string[] } | null = null;
+    let currentStepData: { title: string; details: { text: string; task_type: string }[] } | null = null;
     let phaseIndex = 0;
 
     for (let i = 0; i < lines.length; i++) {
@@ -84,11 +84,56 @@ export class SeederService implements OnApplicationBootstrap {
       } else if (line.startsWith('*') || line.startsWith('-') || line.startsWith('`*`')) {
         if (currentStepData) {
           const detail = line.replace(/^[\*\-\`\s]+/, '').replace(/\*\*/g, '').trim();
-          if (detail) currentStepData.details.push(detail);
+          if (detail) {
+            let taskType = 'NONE';
+            let cleanDetail = detail;
+            if (detail.toLowerCase().startsWith('*asset task:*')) {
+              taskType = 'ASSET';
+              cleanDetail = detail.substring(13).trim();
+            } else if (detail.toLowerCase().startsWith('asset task:')) {
+              taskType = 'ASSET';
+              cleanDetail = detail.substring(11).trim();
+            } else if (detail.toLowerCase().startsWith('*code task:*')) {
+              taskType = 'CODE';
+              cleanDetail = detail.substring(12).trim();
+            } else if (detail.toLowerCase().startsWith('code task:')) {
+              taskType = 'CODE';
+              cleanDetail = detail.substring(10).trim();
+            }
+            // Strip any remaining starting/trailing asterisks for italics if any
+            if (cleanDetail.startsWith('*') && cleanDetail.endsWith('*')) {
+              cleanDetail = cleanDetail.substring(1, cleanDetail.length - 1).trim();
+            } else if (cleanDetail.startsWith('*')) {
+              cleanDetail = cleanDetail.substring(1).trim();
+            }
+            currentStepData.details.push({ text: cleanDetail, task_type: taskType });
+          }
         }
       } else if (currentStepData && line && !line.startsWith('---') && !line.startsWith('##')) {
         const detail = line.replace(/^[\*\-\s]+/, '').trim();
-        if (detail) currentStepData.details.push(detail);
+        if (detail) {
+          let taskType = 'NONE';
+          let cleanDetail = detail;
+          if (detail.toLowerCase().startsWith('*asset task:*')) {
+            taskType = 'ASSET';
+            cleanDetail = detail.substring(13).trim();
+          } else if (detail.toLowerCase().startsWith('asset task:')) {
+            taskType = 'ASSET';
+            cleanDetail = detail.substring(11).trim();
+          } else if (detail.toLowerCase().startsWith('*code task:*')) {
+            taskType = 'CODE';
+            cleanDetail = detail.substring(12).trim();
+          } else if (detail.toLowerCase().startsWith('code task:')) {
+            taskType = 'CODE';
+            cleanDetail = detail.substring(10).trim();
+          }
+          if (cleanDetail.startsWith('*') && cleanDetail.endsWith('*')) {
+            cleanDetail = cleanDetail.substring(1, cleanDetail.length - 1).trim();
+          } else if (cleanDetail.startsWith('*')) {
+            cleanDetail = cleanDetail.substring(1).trim();
+          }
+          currentStepData.details.push({ text: cleanDetail, task_type: taskType });
+        }
       }
     }
 
@@ -99,12 +144,23 @@ export class SeederService implements OnApplicationBootstrap {
     console.log('Seeder seeding process complete!');
   }
 
-  async saveStep(phase: Phase, data: { title: string; details: string[] }) {
+  async saveStep(phase: Phase, data: { title: string; details: { text: string; task_type: string }[] }) {
     const step = new Step();
     step.phase_id = phase._id.toString();
     step.title = data.title;
     step.details = JSON.stringify(data.details);
     step.done = 0;
+
+    // Check if the overall step has a predominant task type (or default to NONE)
+    const hasAsset = data.details.some(d => d.task_type === 'ASSET');
+    const hasCode = data.details.some(d => d.task_type === 'CODE');
+    if (hasAsset && !hasCode) {
+      step.task_type = 'ASSET';
+    } else if (hasCode && !hasAsset) {
+      step.task_type = 'CODE';
+    } else {
+      step.task_type = 'NONE';
+    }
 
     const sImg1 = new StepImage(); sImg1.url = '/images/phase1.png';
     const sImg2 = new StepImage(); sImg2.url = '/images/phase2.png';

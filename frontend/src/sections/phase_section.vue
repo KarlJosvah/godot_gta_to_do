@@ -45,11 +45,17 @@ interface Phase {
   image_urls: string[];
 }
 
+interface StepDetail {
+  text: string;
+  task_type: string;
+}
+
 interface Step {
   id: string;
   phase_id: string;
   title: string;
-  details: string[];
+  task_type: string;
+  details: StepDetail[];
   done: number;
   image_urls: string[];
 }

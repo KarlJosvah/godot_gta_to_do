@@ -23,6 +23,7 @@ export class StepsController {
       id: step._id.toString(),
       phase_id: phaseId,
       title: step.title,
+      task_type: step.task_type || 'NONE',
       details: JSON.parse(step.details || '[]'),
       done: step.done,
       image_urls: (step.images || []).map((img) => img.url),

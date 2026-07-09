@@ -8,6 +8,12 @@
       />
       <span class="checkmark"></span>
       <span class="step-title-text">{{ step.title }}</span>
+      <span 
+        v-if="step.task_type !== 'NONE'" 
+        :class="['task-badge', step.task_type.toLowerCase()]"
+      >
+        {{ step.task_type }}
+      </span>
     </label>
 
     <div class="step-body">
@@ -15,7 +21,13 @@
       <div class="step-details-col">
         <ul class="step-details-list">
           <li v-for="(detail, index) in step.details" :key="index">
-            {{ detail }}
+            <span class="detail-text">{{ detail.text }}</span>
+            <span 
+              v-if="detail.task_type !== 'NONE'" 
+              :class="['task-badge', 'mini', detail.task_type.toLowerCase()]"
+            >
+              {{ detail.task_type }}
+            </span>
           </li>
         </ul>
       </div>
@@ -36,11 +48,17 @@
 </template>
 
 <script setup lang="ts">
+interface StepDetail {
+  text: string;
+  task_type: string;
+}
+
 interface Step {
   id: string;
   phase_id: string;
   title: string;
-  details: string[];
+  task_type: string;
+  details: StepDetail[];
   done: number;
   image_urls: string[];
 }
@@ -71,7 +89,8 @@ defineEmits<{
 
 /* Custom Checkbox styling */
 .checkbox-container {
-  display: block;
+  display: flex;
+  align-items: center;
   position: relative;
   padding-left: 2rem;
   margin-bottom: 1.2rem;
@@ -91,7 +110,8 @@ defineEmits<{
 
 .checkmark {
   position: absolute;
-  top: 0.2rem;
+  top: 50%;
+  transform: translateY(-50%);
   left: 0;
   height: 1.35rem;
   width: 1.35rem;
@@ -137,6 +157,37 @@ defineEmits<{
 .step-card.done .step-title-text {
   color: var(--text-secondary);
   text-decoration: line-through;
+}
+
+/* Badges styling */
+.task-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  margin-left: 1rem;
+  letter-spacing: 0.05em;
+}
+
+.task-badge.asset {
+  background-color: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.task-badge.code {
+  background-color: rgba(99, 102, 241, 0.15);
+  color: #818cf8;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+.task-badge.mini {
+  font-size: 0.6rem;
+  padding: 0.1rem 0.4rem;
+  margin-left: 0.5rem;
+  vertical-align: middle;
 }
 
 /* Step Details & Inner Layout */
