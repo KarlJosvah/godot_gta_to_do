@@ -131,6 +131,7 @@ const fetchPhases = async (targetActiveId: string | null = null) => {
 
 const selectPhase = async (id: string) => {
   activePhaseId.value = id;
+  window.scrollTo({ top: 0, behavior: 'smooth' });
   try {
     const res = await fetch(`${API_BASE}/phases/${id}/steps`);
     steps.value = await res.json();
