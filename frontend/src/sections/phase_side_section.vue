@@ -4,12 +4,6 @@
       <div class="logo">GTA ROADMAP</div>
     </div>
     <nav class="phases-nav">
-      <!-- Add Phase Dashed Row at the very top -->
-      <div class="add-phase-row" @click="$emit('add-phase')">
-        <span class="plus-icon">+</span>
-        <span class="btn-text">Add Phase</span>
-      </div>
-
       <PhaseRowComponent 
         v-for="phase in phases" 
         :key="phase.id"
@@ -17,6 +11,12 @@
         :isActive="activePhaseId === phase.id"
         @select="$emit('select-phase', phase.id)"
       />
+
+      <!-- Add Phase Dashed Row at the very top -->
+      <div class="add-phase-row" @click="$emit('add-phase')">
+        <span class="plus-icon">+</span>
+        <span class="btn-text">Add Phase</span>
+      </div>
     </nav>
   </aside>
 </template>
@@ -54,6 +54,25 @@ defineEmits<{
   height: 100vh;
   z-index: 10;
   overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+.sidebar::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.2);
 }
 
 .sidebar-header {
@@ -67,6 +86,7 @@ defineEmits<{
   letter-spacing: 0.1em;
   background: linear-gradient(135deg, #a78bfa, var(--accent-color));
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
 
