@@ -56,10 +56,12 @@ defineEmits<{
 }
 
 .nav-item-title {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  white-space: normal;
+  word-break: break-word;
+  overflow: visible;
   margin-right: 0.5rem;
+  flex: 1;
+  min-width: 0;
 }
 
 .nav-badge {

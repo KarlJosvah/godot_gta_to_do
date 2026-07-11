@@ -1,9 +1,15 @@
 <template>
-  <aside class="sidebar">
+  <aside class="sidebar" :style="{ width: sidebarWidth + 'px' }">
     <div class="sidebar-header">
       <div class="logo">GTA ROADMAP</div>
     </div>
     <nav class="phases-nav">
+      <!-- Add Phase Dashed Row at the very top -->
+      <div class="add-phase-row" @click="$emit('add-phase')">
+        <span class="plus-icon">+</span>
+        <span class="btn-text">Add Phase</span>
+      </div>
+
       <PhaseRowComponent 
         v-for="phase in phases" 
         :key="phase.id"
@@ -11,17 +17,15 @@
         :isActive="activePhaseId === phase.id"
         @select="$emit('select-phase', phase.id)"
       />
-
-      <!-- Add Phase Dashed Row at the very top -->
-      <div class="add-phase-row" @click="$emit('add-phase')">
-        <span class="plus-icon">+</span>
-        <span class="btn-text">Add Phase</span>
-      </div>
     </nav>
+
+    <!-- Resize Handle -->
+    <div class="resize-handle" @mousedown="startResize"></div>
   </aside>
 </template>
 
 <script setup lang="ts">
+import { ref, onMounted, onUnmounted } from 'vue';
 import PhaseRowComponent from '../components/phase_row_component.vue';
 
 interface Phase {
@@ -37,15 +41,57 @@ defineProps<{
   activePhaseId: string | null;
 }>();
 
-defineEmits<{
+const emit = defineEmits<{
   (e: 'select-phase', id: string): void;
   (e: 'add-phase'): void;
+  (e: 'width-change', width: number): void;
 }>();
+
+const MIN_WIDTH = 300;
+const MAX_WIDTH = 600;
+const DEFAULT_WIDTH = 400;
+
+const sidebarWidth = ref(DEFAULT_WIDTH);
+let isResizing = false;
+
+const startResize = (e: MouseEvent) => {
+  isResizing = true;
+  document.body.style.cursor = 'col-resize';
+  document.body.style.userSelect = 'none';
+  e.preventDefault();
+};
+
+const onMouseMove = (e: MouseEvent) => {
+  if (!isResizing) return;
+  const newWidth = Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, e.clientX));
+  sidebarWidth.value = newWidth;
+  // Update global CSS variable so main content margin adjusts automatically
+  document.documentElement.style.setProperty('--sidebar-width', newWidth + 'px');
+  emit('width-change', newWidth);
+};
+
+const onMouseUp = () => {
+  if (!isResizing) return;
+  isResizing = false;
+  document.body.style.cursor = '';
+  document.body.style.userSelect = '';
+};
+
+onMounted(() => {
+  // Sync CSS variable to match the actual initial width
+  document.documentElement.style.setProperty('--sidebar-width', DEFAULT_WIDTH + 'px');
+  window.addEventListener('mousemove', onMouseMove);
+  window.addEventListener('mouseup', onMouseUp);
+});
+
+onUnmounted(() => {
+  window.removeEventListener('mousemove', onMouseMove);
+  window.removeEventListener('mouseup', onMouseUp);
+});
 </script>
 
 <style scoped>
 .sidebar {
-  width: var(--sidebar-width);
   background-color: var(--bg-secondary);
   border-right: 1px solid var(--border-color);
   display: flex;
@@ -54,8 +100,11 @@ defineEmits<{
   height: 100vh;
   z-index: 10;
   overflow-y: auto;
+  overflow-x: hidden;
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+  /* Smooth width transition when not actively dragging */
+  transition: width 0s;
 }
 
 .sidebar::-webkit-scrollbar {
@@ -113,6 +162,7 @@ defineEmits<{
   transition: all var(--transition-speed) ease;
   background-color: transparent;
   margin-bottom: 0.5rem;
+  white-space: nowrap;
 }
 
 .add-phase-row:hover {
@@ -126,13 +176,36 @@ defineEmits<{
   font-weight: bold;
 }
 
+/* Resize handle */
+.resize-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 5px;
+  height: 100%;
+  cursor: col-resize;
+  background: transparent;
+  transition: background var(--transition-speed) ease;
+  z-index: 20;
+}
+
+.resize-handle:hover,
+.resize-handle:active {
+  background: var(--accent-color);
+  opacity: 0.5;
+}
+
 @media (max-width: 900px) {
   .sidebar {
-    width: 100%;
+    width: 100% !important;
     height: auto;
     position: relative;
     border-right: none;
     border-bottom: 1px solid var(--border-color);
+  }
+
+  .resize-handle {
+    display: none;
   }
 }
 </style>
