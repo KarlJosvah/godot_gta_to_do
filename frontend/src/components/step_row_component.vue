@@ -49,7 +49,7 @@
           class="gallery-img-container"
           @click="$emit('open-lightbox', url, `${step.title} - Step Image ${imgIdx + 1}`)"
         >
-          <img :src="url.startsWith('http') ? url : `http://localhost:3000${url}`" :alt="step.title" />
+          <img :src="resolveAssetUrl(url)" :alt="step.title" />
         </div>
       </div>
     </div>
@@ -57,6 +57,8 @@
 </template>
 
 <script setup lang="ts">
+import { resolveAssetUrl } from '../config';
+
 interface StepDetail {
   text: string;
   task_type: string;

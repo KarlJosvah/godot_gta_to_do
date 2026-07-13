@@ -88,7 +88,7 @@
               :key="idx" 
               class="preview-item"
             >
-              <img :src="url.startsWith('blob:') || url.startsWith('http') ? url : `http://localhost:3000${url}`" alt="Preview" />
+              <img :src="resolveAssetUrl(url)" alt="Preview" />
             </div>
           </div>
         </div>
@@ -140,6 +140,7 @@
 
 <script setup lang="ts">
 import { reactive, computed, watch, ref } from 'vue';
+import { resolveAssetUrl } from '../../config';
 
 interface StepDetail {
   text: string;

@@ -23,7 +23,7 @@
           class="gallery-img-container"
           @click="$emit('open-lightbox', url, `${phase.title} - Image ${idx + 1}`)"
         >
-          <img :src="url.startsWith('http') ? url : `http://localhost:3000${url}`" :alt="phase.title" />
+          <img :src="resolveAssetUrl(url)" :alt="phase.title" />
         </div>
       </div>
 
@@ -50,6 +50,7 @@
 
 <script setup lang="ts">
 import StepRowComponent from '../components/step_row_component.vue';
+import { resolveAssetUrl } from '../config';
 
 interface Phase {
   id: string;

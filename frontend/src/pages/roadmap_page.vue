@@ -26,7 +26,7 @@
       @click.self="closeLightbox"
     >
       <span class="lightbox-close" @click="closeLightbox">&times;</span>
-      <img class="lightbox-content" :src="lightboxImg.startsWith('http') ? lightboxImg : `http://localhost:3000${lightboxImg}`" alt="Enlarged Image" />
+      <img class="lightbox-content" :src="resolveAssetUrl(lightboxImg)" alt="Enlarged Image" />
       <div class="lightbox-caption">{{ lightboxCaption }}</div>
     </div>
 
@@ -58,6 +58,7 @@ import PhaseSideSection from '../sections/phase_side_section.vue';
 import PhaseSection from '../sections/phase_section.vue';
 import PhaseModal from '../sections/modals/phase_modal.vue';
 import StepModal from '../sections/modals/step_modal.vue';
+import { API_BASE, resolveAssetUrl } from '../config';
 
 interface Phase {
   id: string;
@@ -81,8 +82,6 @@ interface Step {
   done: number;
   image_urls: string[];
 }
-
-const API_BASE = 'http://localhost:3000/api';
 
 const phases = ref<Phase[]>([]);
 const activePhaseId = ref<string | null>(null);
