@@ -1,13 +1,16 @@
-import { Controller, Get, Param, Post, Patch, Delete, Body, UseInterceptors, UploadedFiles } from '@nestjs/common';
+import {
+  Controller, Get, Param, Post, Patch, Delete,
+  Body, UseInterceptors, UploadedFiles,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Step, StepImage } from './entities/step.entity';
 import { Phase } from '../phases/entities/phase.entity';
 import { ObjectId } from 'mongodb';
 import { FilesInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
+import { memoryStorage } from 'multer';
 import { CreateStepDto } from './dto/create-step.dto';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 @Controller()
 export class StepsController {
@@ -16,6 +19,7 @@ export class StepsController {
     private readonly stepRepository: Repository<Step>,
     @InjectRepository(Phase)
     private readonly phaseRepository: Repository<Phase>,
+    private readonly cloudinaryService: CloudinaryService,
   ) {}
 
   @Get('phases/:phaseId/steps')
@@ -35,17 +39,7 @@ export class StepsController {
   }
 
   @Post('steps')
-  @UseInterceptors(
-    FilesInterceptor('files', 10, {
-      storage: diskStorage({
-        destination: './public/uploads',
-        filename: (req, file, cb) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, file.fieldname + '-' + uniqueSuffix + extname(file.originalname));
-        },
-      }),
-    }),
-  )
+  @UseInterceptors(FilesInterceptor('files', 10, { storage: memoryStorage() }))
   async create(
     @Body() createDto: CreateStepDto,
     @UploadedFiles() files: Array<Express.Multer.File>,
@@ -57,7 +51,10 @@ export class StepsController {
     step.details = createDto.details || '[]';
     step.done = 0;
 
-    const urls = files ? files.map((file) => `/uploads/${file.filename}`) : [];
+    const urls = files && files.length > 0
+      ? await this.cloudinaryService.uploadFiles(files)
+      : [];
+
     step.images = urls.map((url) => {
       const img = new StepImage();
       img.url = url;
@@ -65,8 +62,6 @@ export class StepsController {
     });
 
     const saved = await this.stepRepository.save(step);
-
-    // Update parent phase done status
     await this.updatePhaseStatus(step.phase_id);
 
     return {
@@ -81,17 +76,7 @@ export class StepsController {
   }
 
   @Patch('steps/:id')
-  @UseInterceptors(
-    FilesInterceptor('files', 10, {
-      storage: diskStorage({
-        destination: './public/uploads',
-        filename: (req, file, cb) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, file.fieldname + '-' + uniqueSuffix + extname(file.originalname));
-        },
-      }),
-    }),
-  )
+  @UseInterceptors(FilesInterceptor('files', 10, { storage: memoryStorage() }))
   async update(
     @Param('id') id: string,
     @Body() updateDto: any,
@@ -101,22 +86,14 @@ export class StepsController {
     const step = await this.stepRepository.findOne({
       where: { _id: objectId } as any,
     });
-    if (!step) {
-      throw new Error('Step not found');
-    }
+    if (!step) throw new Error('Step not found');
 
-    if (updateDto.title !== undefined) {
-      step.title = updateDto.title;
-    }
-    if (updateDto.task_type !== undefined) {
-      step.task_type = updateDto.task_type;
-    }
-    if (updateDto.details !== undefined) {
-      step.details = updateDto.details;
-    }
+    if (updateDto.title !== undefined) step.title = updateDto.title;
+    if (updateDto.task_type !== undefined) step.task_type = updateDto.task_type;
+    if (updateDto.details !== undefined) step.details = updateDto.details;
 
     if (files && files.length > 0) {
-      const urls = files.map((file) => `/uploads/${file.filename}`);
+      const urls = await this.cloudinaryService.uploadFiles(files);
       step.images = urls.map((url) => {
         const img = new StepImage();
         img.url = url;
@@ -144,9 +121,7 @@ export class StepsController {
     const step = await this.stepRepository.findOne({
       where: { _id: objectId } as any,
     });
-    if (!step) {
-      throw new Error('Step not found');
-    }
+    if (!step) throw new Error('Step not found');
 
     const phaseId = step.phase_id;
     await this.stepRepository.delete({ _id: objectId } as any);
@@ -161,9 +136,7 @@ export class StepsController {
     const step = await this.stepRepository.findOne({
       where: { _id: objectId } as any,
     });
-    if (!step) {
-      throw new Error('Step not found');
-    }
+    if (!step) throw new Error('Step not found');
 
     step.done = step.done === 1 ? 0 : 1;
     await this.stepRepository.save(step);
@@ -182,14 +155,14 @@ export class StepsController {
     const allSteps = await this.stepRepository.find({
       where: { phase_id: phaseIdStr },
     });
-    
+
     const allDone = allSteps.length > 0 && allSteps.every((s) => s.done === 1);
     const newPhaseDone = allDone ? 1 : 0;
 
     const phaseObjectId = new ObjectId(phaseIdStr);
     await this.phaseRepository.update(
       { _id: phaseObjectId } as any,
-      { done: newPhaseDone }
+      { done: newPhaseDone },
     );
 
     return newPhaseDone;

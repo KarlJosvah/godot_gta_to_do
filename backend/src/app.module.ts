@@ -8,6 +8,7 @@ import { StepsModule } from './steps/steps.module';
 import { SeederModule } from './database/seeder.module';
 import { Phase } from './phases/entities/phase.entity';
 import { Step } from './steps/entities/step.entity';
+import { CloudinaryModule } from './cloudinary/cloudinary.module';
 
 @Module({
   imports: [
@@ -25,6 +26,7 @@ import { Step } from './steps/entities/step.entity';
     PhasesModule,
     StepsModule,
     SeederModule,
+    CloudinaryModule,
   ],
 })
 export class AppModule {}

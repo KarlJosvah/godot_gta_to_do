@@ -1,4 +1,7 @@
-import { Controller, Get, Post, Patch, Delete, Body, Param, UseInterceptors, UploadedFiles } from '@nestjs/common';
+import {
+  Controller, Get, Post, Patch, Delete,
+  Body, Param, UseInterceptors, UploadedFiles,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Phase, PhaseImage } from './entities/phase.entity';
@@ -6,8 +9,8 @@ import { Step } from '../steps/entities/step.entity';
 import { CreatePhaseDto } from './dto/create-phase.dto';
 import { ObjectId } from 'mongodb';
 import { FilesInterceptor } from '@nestjs/platform-express';
-import { diskStorage } from 'multer';
-import { extname } from 'path';
+import { memoryStorage } from 'multer';
+import { CloudinaryService } from '../cloudinary/cloudinary.service';
 
 @Controller('phases')
 export class PhasesController {
@@ -16,6 +19,7 @@ export class PhasesController {
     private readonly phaseRepository: Repository<Phase>,
     @InjectRepository(Step)
     private readonly stepRepository: Repository<Step>,
+    private readonly cloudinaryService: CloudinaryService,
   ) {}
 
   @Get()
@@ -31,17 +35,7 @@ export class PhasesController {
   }
 
   @Post()
-  @UseInterceptors(
-    FilesInterceptor('files', 10, {
-      storage: diskStorage({
-        destination: './public/uploads',
-        filename: (req, file, cb) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, file.fieldname + '-' + uniqueSuffix + extname(file.originalname));
-        },
-      }),
-    }),
-  )
+  @UseInterceptors(FilesInterceptor('files', 10, { storage: memoryStorage() }))
   async create(
     @Body() createDto: CreatePhaseDto,
     @UploadedFiles() files: Array<Express.Multer.File>,
@@ -51,7 +45,10 @@ export class PhasesController {
     phase.description = createDto.description || '';
     phase.done = 0;
 
-    const urls = files ? files.map((file) => `/uploads/${file.filename}`) : [];
+    const urls = files && files.length > 0
+      ? await this.cloudinaryService.uploadFiles(files)
+      : [];
+
     phase.images = urls.map((url) => {
       const img = new PhaseImage();
       img.url = url;
@@ -69,17 +66,7 @@ export class PhasesController {
   }
 
   @Patch(':id')
-  @UseInterceptors(
-    FilesInterceptor('files', 10, {
-      storage: diskStorage({
-        destination: './public/uploads',
-        filename: (req, file, cb) => {
-          const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
-          cb(null, file.fieldname + '-' + uniqueSuffix + extname(file.originalname));
-        },
-      }),
-    }),
-  )
+  @UseInterceptors(FilesInterceptor('files', 10, { storage: memoryStorage() }))
   async update(
     @Param('id') id: string,
     @Body() updateDto: CreatePhaseDto,
@@ -89,20 +76,13 @@ export class PhasesController {
     const phase = await this.phaseRepository.findOne({
       where: { _id: objectId } as any,
     });
-    if (!phase) {
-      throw new Error('Phase not found');
-    }
+    if (!phase) throw new Error('Phase not found');
 
-    if (updateDto.title !== undefined) {
-      phase.title = updateDto.title;
-    }
-    if (updateDto.description !== undefined) {
-      phase.description = updateDto.description;
-    }
+    if (updateDto.title !== undefined) phase.title = updateDto.title;
+    if (updateDto.description !== undefined) phase.description = updateDto.description;
 
-    // If new files are uploaded, append/overwrite existing images list
     if (files && files.length > 0) {
-      const urls = files.map((file) => `/uploads/${file.filename}`);
+      const urls = await this.cloudinaryService.uploadFiles(files);
       phase.images = urls.map((url) => {
         const img = new PhaseImage();
         img.url = url;
@@ -126,13 +106,9 @@ export class PhasesController {
     const phase = await this.phaseRepository.findOne({
       where: { _id: objectId } as any,
     });
-    if (!phase) {
-      throw new Error('Phase not found');
-    }
+    if (!phase) throw new Error('Phase not found');
 
-    // Delete child steps
     await this.stepRepository.delete({ phase_id: id });
-    // Delete phase document
     await this.phaseRepository.delete({ _id: objectId } as any);
 
     return { success: true };
