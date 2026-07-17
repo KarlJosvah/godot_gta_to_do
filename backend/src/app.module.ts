@@ -9,6 +9,8 @@ import { SeederModule } from './database/seeder.module';
 import { Phase } from './phases/entities/phase.entity';
 import { Step } from './steps/entities/step.entity';
 import { CloudinaryModule } from './cloudinary/cloudinary.module';
+import { AuthModule } from './auth/auth.module';
+import { User } from './auth/entities/user.entity';
 
 @Module({
   imports: [
@@ -16,7 +18,7 @@ import { CloudinaryModule } from './cloudinary/cloudinary.module';
     TypeOrmModule.forRoot({
       type: 'mongodb',
       url: process.env.MONGODB_URL,
-      entities: [Phase, Step],
+      entities: [Phase, Step, User],
       synchronize: true,
     }),
     ServeStaticModule.forRoot({
@@ -27,6 +29,7 @@ import { CloudinaryModule } from './cloudinary/cloudinary.module';
     StepsModule,
     SeederModule,
     CloudinaryModule,
+    AuthModule,
   ],
 })
 export class AppModule {}

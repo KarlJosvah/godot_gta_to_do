@@ -59,6 +59,9 @@ import PhaseSection from '../sections/phase_section.vue';
 import PhaseModal from '../sections/modals/phase_modal.vue';
 import StepModal from '../sections/modals/step_modal.vue';
 import { API_BASE, resolveAssetUrl } from '../config';
+import { useAuth } from '../composables/useAuth';
+
+const { authFetch } = useAuth();
 
 interface Phase {
   id: string;
@@ -194,13 +197,13 @@ const closePhaseModal = () => { phaseModalOpen.value = false; };
 const handlePhaseModalSubmit = async (formData: FormData) => {
   try {
     if (isPhaseEditMode.value && modalPhaseData.value) {
-      const res = await fetch(`${API_BASE}/phases/${modalPhaseData.value.id}`, {
+      const res = await authFetch(`${API_BASE}/phases/${modalPhaseData.value.id}`, {
         method: 'PATCH',
         body: formData
       });
       if (res.ok) { closePhaseModal(); await fetchPhases(modalPhaseData.value.id); }
     } else {
-      const res = await fetch(`${API_BASE}/phases`, { method: 'POST', body: formData });
+      const res = await authFetch(`${API_BASE}/phases`, { method: 'POST', body: formData });
       if (res.ok) {
         const newPhase = await res.json();
         closePhaseModal();
@@ -213,7 +216,7 @@ const handlePhaseModalSubmit = async (formData: FormData) => {
 const handlePhaseModalDelete = async () => {
   if (!modalPhaseData.value) return;
   try {
-    const res = await fetch(`${API_BASE}/phases/${modalPhaseData.value.id}`, { method: 'DELETE' });
+    const res = await authFetch(`${API_BASE}/phases/${modalPhaseData.value.id}`, { method: 'DELETE' });
     if (res.ok) { closePhaseModal(); await fetchPhases(); }
   } catch (err) { console.error('Error deleting phase:', err); }
 };
@@ -234,7 +237,7 @@ const closeStepModal = () => { stepModalOpen.value = false; };
 const handleStepModalSubmit = async (formData: FormData) => {
   try {
     if (isStepEditMode.value && modalStepData.value) {
-      const res = await fetch(`${API_BASE}/steps/${modalStepData.value.id}`, {
+      const res = await authFetch(`${API_BASE}/steps/${modalStepData.value.id}`, {
         method: 'PATCH',
         body: formData
       });
@@ -242,7 +245,7 @@ const handleStepModalSubmit = async (formData: FormData) => {
     } else {
       // Inject the current active phase_id
       formData.append('phase_id', activePhaseId.value!);
-      const res = await fetch(`${API_BASE}/steps`, { method: 'POST', body: formData });
+      const res = await authFetch(`${API_BASE}/steps`, { method: 'POST', body: formData });
       if (res.ok) { closeStepModal(); await refreshSteps(); }
     }
   } catch (err) { console.error('Error submitting step form:', err); }
@@ -251,7 +254,7 @@ const handleStepModalSubmit = async (formData: FormData) => {
 const handleStepModalDelete = async () => {
   if (!modalStepData.value) return;
   try {
-    const res = await fetch(`${API_BASE}/steps/${modalStepData.value.id}`, { method: 'DELETE' });
+    const res = await authFetch(`${API_BASE}/steps/${modalStepData.value.id}`, { method: 'DELETE' });
     if (res.ok) { closeStepModal(); await refreshSteps(); }
   } catch (err) { console.error('Error deleting step:', err); }
 };

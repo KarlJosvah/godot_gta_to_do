@@ -1,6 +1,6 @@
 import {
   Controller, Get, Post, Patch, Delete,
-  Body, Param, UseInterceptors, UploadedFiles,
+  Body, Param, UseInterceptors, UploadedFiles, UseGuards,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
@@ -11,6 +11,7 @@ import { ObjectId } from 'mongodb';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 
 @Controller('phases')
 export class PhasesController {
@@ -34,6 +35,7 @@ export class PhasesController {
     }));
   }
 
+  @UseGuards(JwtAuthGuard)
   @Post()
   @UseInterceptors(FilesInterceptor('files', 10, { storage: memoryStorage() }))
   async create(
@@ -65,6 +67,7 @@ export class PhasesController {
     };
   }
 
+  @UseGuards(JwtAuthGuard)
   @Patch(':id')
   @UseInterceptors(FilesInterceptor('files', 10, { storage: memoryStorage() }))
   async update(
@@ -100,6 +103,7 @@ export class PhasesController {
     };
   }
 
+  @UseGuards(JwtAuthGuard)
   @Delete(':id')
   async delete(@Param('id') id: string) {
     const objectId = new ObjectId(id);

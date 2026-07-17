@@ -11,6 +11,8 @@ import { FilesInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { CreateStepDto } from './dto/create-step.dto';
 import { CloudinaryService } from '../cloudinary/cloudinary.service';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { UseGuards } from '@nestjs/common';
 
 @Controller()
 export class StepsController {
@@ -38,6 +40,7 @@ export class StepsController {
     }));
   }
 
+  @UseGuards(JwtAuthGuard)
   @Post('steps')
   @UseInterceptors(FilesInterceptor('files', 10, { storage: memoryStorage() }))
   async create(
@@ -75,6 +78,7 @@ export class StepsController {
     };
   }
 
+  @UseGuards(JwtAuthGuard)
   @Patch('steps/:id')
   @UseInterceptors(FilesInterceptor('files', 10, { storage: memoryStorage() }))
   async update(
@@ -115,6 +119,7 @@ export class StepsController {
     };
   }
 
+  @UseGuards(JwtAuthGuard)
   @Delete('steps/:id')
   async delete(@Param('id') id: string) {
     const objectId = new ObjectId(id);

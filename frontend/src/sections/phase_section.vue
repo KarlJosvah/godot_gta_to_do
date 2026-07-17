@@ -4,7 +4,7 @@
       <div class="header-content title-hover-wrapper">
         <div class="title-row">
           <h1>{{ phase.title }}</h1>
-          <button class="edit-phase-btn" @click="$emit('edit-phase', phase)">
+          <button v-if="isLoggedIn" class="edit-phase-btn" @click="$emit('edit-phase', phase)">
             <svg class="edit-icon" viewBox="0 0 24 24" width="20" height="20">
               <path fill="currentColor" d="M14.06,9L15,9.94L5.92,19H5V18.08L14.06,9M17.66,3C17.41,3 17.15,3.1 16.96,3.29L15.13,5.12L18.88,8.87L20.71,7.04C21.1,6.65 21.1,6 20.71,5.63L18.37,3.29C18.17,3.09 17.92,3 17.66,3M14.06,6.19L3,17.25V21H6.75L17.81,9.94L14.06,6.19Z" />
             </svg>
@@ -39,7 +39,7 @@
         />
 
         <!-- Add Step Dashed Button at the bottom -->
-        <div class="add-step-row" @click="$emit('add-step')">
+        <div v-if="isLoggedIn" class="add-step-row" @click="$emit('add-step')">
           <span class="plus-icon">+</span>
           <span class="btn-text">Add Step</span>
         </div>
@@ -51,6 +51,9 @@
 <script setup lang="ts">
 import StepRowComponent from '../components/step_row_component.vue';
 import { resolveAssetUrl } from '../config';
+import { useAuth } from '../composables/useAuth';
+
+const { isLoggedIn } = useAuth();
 
 interface Phase {
   id: string;

@@ -3,8 +3,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Phase, PhaseImage } from '../phases/entities/phase.entity';
 import { Step, StepImage } from '../steps/entities/step.entity';
+import { UsersService } from '../auth/users.service';
 import * as fs from 'fs';
 import * as path from 'path';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class SeederService implements OnApplicationBootstrap {
@@ -13,9 +15,21 @@ export class SeederService implements OnApplicationBootstrap {
     private readonly phaseRepository: Repository<Phase>,
     @InjectRepository(Step)
     private readonly stepRepository: Repository<Step>,
+    private readonly usersService: UsersService,
   ) {}
 
   async onApplicationBootstrap() {
+    // Seed user admin if none exists
+    const usersCount = await this.usersService.count();
+    if (usersCount === 0) {
+      console.log('Seeding default administrator account user: admin...');
+      const hashedPassword = await bcrypt.hash('admin123', 10);
+      await this.usersService.create({
+        username: 'admin',
+        password: hashedPassword,
+      });
+    }
+
     const phasesCount = await this.phaseRepository.count();
     if (phasesCount === 0) {
       console.log('Database empty! Triggering database seeder module...');
@@ -151,7 +165,6 @@ export class SeederService implements OnApplicationBootstrap {
     step.details = JSON.stringify(data.details);
     step.done = 0;
 
-    // Check if the overall step has a predominant task type (or default to NONE)
     const hasAsset = data.details.some(d => d.task_type === 'ASSET');
     const hasCode = data.details.some(d => d.task_type === 'CODE');
     if (hasAsset && !hasCode) {

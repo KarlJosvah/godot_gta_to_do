@@ -4,11 +4,6 @@
       <div class="logo">GTA ROADMAP</div>
     </div>
     <nav class="phases-nav">
-      <!-- Add Phase Dashed Row at the very top -->
-      <div class="add-phase-row" @click="$emit('add-phase')">
-        <span class="plus-icon">+</span>
-        <span class="btn-text">Add Phase</span>
-      </div>
 
       <PhaseRowComponent 
         v-for="phase in phases" 
@@ -17,6 +12,11 @@
         :isActive="activePhaseId === phase.id"
         @select="$emit('select-phase', phase.id)"
       />
+      
+      <div v-if="isLoggedIn" class="add-phase-row" @click="$emit('add-phase')">
+        <span class="plus-icon">+</span>
+        <span class="btn-text">Add Phase</span>
+      </div>
     </nav>
 
     <!-- Resize Handle -->
@@ -27,6 +27,9 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted } from 'vue';
 import PhaseRowComponent from '../components/phase_row_component.vue';
+import { useAuth } from '../composables/useAuth';
+
+const { isLoggedIn } = useAuth();
 
 interface Phase {
   id: string;
