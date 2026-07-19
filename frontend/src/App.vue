@@ -3,166 +3,29 @@
     <!-- Fixed action buttons column, top right -->
     <div class="fixed-actions">
       <!-- User auth button -->
-      <button class="fixed-btn" @click="openAuthModal" title="Account">
-        <img src="/user-circle.svg" class="btn-icon" alt="User Account" />
-        <span v-if="isLoggedIn" class="user-status-dot done"></span>
-        <span v-else class="user-status-dot todo"></span>
-      </button>
+      <AuthButton />
 
       <!-- Export markdown button -->
-      <button
-        class="fixed-btn"
-        @click="downloadMarkdown"
-        :disabled="downloading"
-        title="Export plan as Markdown"
-      >
-        <img src="/markdown.svg" class="btn-icon" alt="Export Markdown" />
-      </button>
+      <ExportButton ref="exportBtn" />
 
       <!-- Import markdown button (authenticated only) -->
-      <button
-        v-if="isLoggedIn"
-        class="fixed-btn"
-        @click="triggerUpload"
-        title="Import plan from Markdown"
-      >
-        <img src="/upload.svg" class="btn-icon" alt="Import Markdown" />
-      </button>
-
-      <!-- Hidden file input for markdown files -->
-      <input
-        type="file"
-        ref="fileInput"
-        style="display: none"
-        accept=".md"
-        @change="handleFileSelected"
-      />
+      <ImportButton :exportRef="exportBtn" @imported="refreshKey++" />
     </div>
 
     <!-- Keyed RoadmapPage to force component refresh on import -->
     <RoadmapPage :key="refreshKey" />
-
-    <!-- Auth Modal -->
-    <AuthModal v-if="authModalOpen" @close="authModalOpen = false" />
-
-    <!-- Custom Import Confirmation Modal -->
-    <div v-if="confirmModalOpen" class="confirm-modal-backdrop" @click.self="cancelImport">
-      <div class="confirm-modal-box">
-        <header class="modal-header">
-          <h2>Backup Database?</h2>
-          <span class="modal-close" @click="cancelImport">&times;</span>
-        </header>
-        <div class="modal-body">
-          <p>Before importing, would you like to download a backup of the current database phases and steps?</p>
-          <p class="warning-text">Warning: Importing will entirely overwrite your current roadmap data.</p>
-        </div>
-        <footer class="modal-footer">
-          <div class="right-buttons">
-            <button class="btn btn-cancel" @click="proceedWithImport(false)">No, Skip Backup</button>
-            <button class="btn btn-save" @click="proceedWithImport(true)">Yes, Backup & Import</button>
-          </div>
-        </footer>
-      </div>
-    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref } from 'vue';
 import RoadmapPage from './pages/roadmap_page.vue';
-import AuthModal from './sections/modals/auth_modal.vue';
-import { useAuth } from './composables/useAuth';
-import { API_BASE } from './config';
+import AuthButton from './components/AuthButton.vue';
+import ExportButton from './components/ExportButton.vue';
+import ImportButton from './components/ImportButton.vue';
 
-const { isLoggedIn, authFetch } = useAuth();
-const authModalOpen = ref(false);
-const downloading = ref(false);
 const refreshKey = ref(0);
-
-// Import flow state
-const fileInput = ref<HTMLInputElement | null>(null);
-const confirmModalOpen = ref(false);
-const selectedFile = ref<File | null>(null);
-
-const openAuthModal = () => {
-  authModalOpen.value = true;
-};
-
-const downloadMarkdown = async (): Promise<void> => {
-  downloading.value = true;
-  try {
-    const res = await fetch(`${API_BASE}/phases/export`);
-    if (!res.ok) throw new Error('Export failed');
-
-    const blob = await res.blob();
-    const now = new Date();
-    const datePart = now.toISOString().slice(0, 10);
-    const timePart = now.toTimeString().slice(0, 8).replace(/:/g, '-');
-    const filename = `plan-${datePart}_${timePart}.md`;
-
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
-  } catch (err) {
-    console.error('Markdown export failed:', err);
-  } finally {
-    downloading.value = false;
-  }
-};
-
-const triggerUpload = () => {
-  if (fileInput.value) {
-    fileInput.value.value = '';
-    fileInput.value.click();
-  }
-};
-
-const handleFileSelected = (e: Event) => {
-  const target = e.target as HTMLInputElement;
-  if (target.files && target.files.length > 0) {
-    selectedFile.value = target.files[0];
-    confirmModalOpen.value = true;
-  }
-};
-
-const cancelImport = () => {
-  confirmModalOpen.value = false;
-  selectedFile.value = null;
-};
-
-const proceedWithImport = async (shouldBackup: boolean) => {
-  confirmModalOpen.value = false;
-  
-  if (shouldBackup) {
-    await downloadMarkdown();
-  }
-
-  if (!selectedFile.value) return;
-
-  const formData = new FormData();
-  formData.append('file', selectedFile.value);
-
-  try {
-    const res = await authFetch(`${API_BASE}/phases/import`, {
-      method: 'POST',
-      body: formData,
-    });
-
-    if (res.ok) {
-      // Re-render the entire RoadmapPage to reflect new db status
-      refreshKey.value++;
-    } else {
-      alert('Import failed. Please check the markdown file format.');
-    }
-  } catch (err) {
-    console.error('Markdown import failed:', err);
-  } finally {
-    selectedFile.value = null;
-  }
-};
+const exportBtn = ref<{ downloadMarkdown: () => Promise<void> } | null>(null);
 </script>
 
 <style>
