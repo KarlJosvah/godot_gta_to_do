@@ -135,6 +135,7 @@ export class StepsController {
     return { success: true };
   }
 
+  @UseGuards(JwtAuthGuard)
   @Post('steps/:id/toggle')
   async toggle(@Param('id') id: string) {
     const objectId = new ObjectId(id);

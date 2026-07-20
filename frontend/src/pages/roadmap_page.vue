@@ -157,7 +157,7 @@ const refreshSteps = async () => {
 
 const toggleStep = async (stepId: string) => {
   try {
-    const res = await fetch(`${API_BASE}/steps/${stepId}/toggle`, {
+    const res = await authFetch(`${API_BASE}/steps/${stepId}/toggle`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' }
     });

@@ -5,6 +5,7 @@
         <input 
           type="checkbox" 
           :checked="step.done === 1"
+          :disabled="!isLoggedIn"
           @change="$emit('toggle', step.id)"
         />
         <span class="checkmark"></span>
