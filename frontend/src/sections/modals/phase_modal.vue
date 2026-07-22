@@ -39,13 +39,14 @@
             @change="handleFileChange"
             class="file-input"
           />
-          <div class="file-preview-list" v-if="previewUrls.length > 0">
+          <div class="file-preview-list" v-if="images.length > 0">
             <div 
-              v-for="(url, idx) in previewUrls" 
-              :key="idx" 
+              v-for="img in images" 
+              :key="img.id" 
               class="preview-item"
             >
-              <img :src="resolveAssetUrl(url)" alt="Preview Image" />
+              <img :src="resolveAssetUrl(img.url)" alt="Preview Image" />
+              <button type="button" class="remove-img-btn" @click="removeImage(img.id)">&times;</button>
             </div>
           </div>
         </div>
@@ -112,6 +113,12 @@ interface Phase {
   image_urls: string[];
 }
 
+interface ImageItem {
+  id: string;
+  url: string;
+  file: File | null;
+}
+
 const props = defineProps<{
   isEditMode: boolean;
   phase: Phase | null;
@@ -128,14 +135,14 @@ const form = reactive({
   description: ''
 });
 
-const selectedFiles = ref<File[]>([]);
-const previewUrls = ref<string[]>([]);
+const images = ref<ImageItem[]>([]);
 const showConfirmModal = ref(false);
 
 // Capture initial state to track alterations
 const initialFormState = reactive({
   title: '',
-  description: ''
+  description: '',
+  imageUrlsJson: ''
 });
 
 // Watch phase changes to populate inputs
@@ -145,15 +152,19 @@ watch(
     if (props.isEditMode && newPhase) {
       form.title = newPhase.title;
       form.description = newPhase.description;
-      previewUrls.value = [...(newPhase.image_urls || [])];
+      images.value = (newPhase.image_urls || []).map(url => ({
+        id: 'existing-' + Math.random().toString(36).substring(2, 9),
+        url,
+        file: null
+      }));
     } else {
       form.title = '';
       form.description = '';
-      previewUrls.value = [];
+      images.value = [];
     }
-    selectedFiles.value = [];
     initialFormState.title = form.title;
     initialFormState.description = form.description;
+    initialFormState.imageUrlsJson = JSON.stringify((newPhase?.image_urls || []));
   },
   { immediate: true }
 );
@@ -162,31 +173,62 @@ const handleFileChange = (e: Event) => {
   const target = e.target as HTMLInputElement;
   if (target.files) {
     const files = Array.from(target.files);
-    selectedFiles.value = files;
-    
-    // Create preview URLs
-    previewUrls.value = files.map((file) => URL.createObjectURL(file));
+    files.forEach(file => {
+      images.value.push({
+        id: 'new-' + Math.random().toString(36).substring(2, 9),
+        url: URL.createObjectURL(file),
+        file
+      });
+    });
+    // Clear input selection so user can choose same files again if needed
+    target.value = '';
+  }
+};
+
+const removeImage = (id: string) => {
+  const idx = images.value.findIndex(img => img.id === id);
+  if (idx !== -1) {
+    const img = images.value[idx];
+    if (img.file && img.url.startsWith('blob:')) {
+      URL.revokeObjectURL(img.url);
+    }
+    images.value.splice(idx, 1);
   }
 };
 
 const isSaveDisabled = computed(() => {
+  if (!form.title.trim()) return true;
   if (!props.isEditMode) return false;
-  // If files are selected, allow saving. Otherwise check title/description changes.
-  if (selectedFiles.value.length > 0) return false;
-  return (
-    form.title === initialFormState.title &&
-    form.description === initialFormState.description
-  );
+  
+  // Track alterations compared to initial state
+  const currentExistingUrls = images.value.filter(img => !img.file).map(img => img.url);
+  const hasNewFiles = images.value.some(img => img.file !== null);
+
+  const titleChanged = form.title !== initialFormState.title;
+  const descChanged = form.description !== initialFormState.description;
+  const imagesChanged = hasNewFiles || JSON.stringify(currentExistingUrls) !== initialFormState.imageUrlsJson;
+
+  return !titleChanged && !descChanged && !imagesChanged;
 });
 
 const submitForm = () => {
   const formData = new FormData();
   formData.append('title', form.title);
   formData.append('description', form.description);
+
+  // Extract remaining existing image URLs
+  const existingImages = images.value
+    .filter(img => !img.file)
+    .map(img => img.url);
+
+  formData.append('existing_images', JSON.stringify(existingImages));
   
-  selectedFiles.value.forEach((file) => {
-    formData.append('files', file);
-  });
+  // Append new files
+  images.value
+    .filter(img => img.file !== null)
+    .forEach((img) => {
+      formData.append('files', img.file!);
+    });
 
   emit('submit', formData);
 };
@@ -202,41 +244,105 @@ const confirmDelete = () => {
 </script>
 
 <style scoped>
-/* CRUD Modal Design */
-.crud-modal-backdrop {
+.preview-item {
+  position: relative;
+  width: 80px;
+  height: 45px;
+  border-radius: 0.25rem;
+  border: 1px solid var(--border-color);
+}
+
+.preview-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 0.25rem;
+}
+
+.remove-img-btn {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background-color: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  transition: background-color var(--transition-speed) ease;
+}
+
+.remove-img-btn:hover {
+  background-color: #dc2626;
+}
+
+.file-preview-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
+.confirm-modal-backdrop {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
   height: 100%;
-  background-color: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(4px);
+  background-color: rgba(0, 0, 0, 0.7);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 999;
+  z-index: 1000;
 }
 
-.crud-modal {
-  background-color: var(--bg-secondary);
+.confirm-modal {
+  background-color: var(--bg-primary);
   border: 1px solid var(--border-color);
   width: 100%;
-  max-width: 500px;
-  border-radius: 1rem;
-  box-shadow: var(--shadow-lg);
+  max-width: 400px;
+  border-radius: 0.75rem;
   overflow: hidden;
-  animation: modalSlide 0.25s ease;
+  box-shadow: var(--shadow-lg);
+  animation: modalSlide 0.2s ease;
 }
 
-@keyframes modalSlide {
-  from {
-    transform: translateY(20px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
+.confirm-header {
+  padding: 1.25rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+.confirm-header h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #ef4444;
+}
+
+.confirm-body {
+  padding: 1.5rem 1.25rem;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+
+.warning-text {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+}
+
+.confirm-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  padding: 1.25rem;
+  background-color: var(--bg-secondary);
+  border-top: 1px solid var(--border-color);
 }
 
 .modal-header {
@@ -261,6 +367,34 @@ const confirmDelete = () => {
 
 .modal-close:hover {
   color: var(--text-primary);
+}
+
+.crud-modal-backdrop {
+  position: fixed;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  background-color: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+
+.crud-modal {
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  width: 100%;
+  max-width: 600px;
+  border-radius: 1rem;
+  box-shadow: var(--shadow-lg);
+  overflow: hidden;
+  animation: modalSlide 0.25s ease;
+}
+
+@keyframes modalSlide {
+  from { transform: translateY(20px); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
 }
 
 .modal-form {
@@ -307,27 +441,6 @@ const confirmDelete = () => {
   width: 100%;
   color: var(--text-secondary);
   font-size: 0.9rem;
-}
-
-.file-preview-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
-}
-
-.preview-item {
-  width: 80px;
-  height: 45px;
-  border-radius: 0.25rem;
-  overflow: hidden;
-  border: 1px solid var(--border-color);
-}
-
-.preview-item img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
 }
 
 .modal-footer {
@@ -390,63 +503,6 @@ const confirmDelete = () => {
 .btn-delete:hover {
   background-color: #ef4444;
   color: white;
-}
-
-/* Delete Confirmation Modal Backdrop & Styles */
-.confirm-modal-backdrop {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-}
-
-.confirm-modal {
-  background-color: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  width: 100%;
-  max-width: 400px;
-  border-radius: 0.75rem;
-  overflow: hidden;
-  box-shadow: var(--shadow-lg);
-  animation: modalSlide 0.2s ease;
-}
-
-.confirm-header {
-  padding: 1.25rem;
-  border-bottom: 1px solid var(--border-color);
-}
-
-.confirm-header h3 {
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: #ef4444;
-}
-
-.confirm-body {
-  padding: 1.5rem 1.25rem;
-  color: var(--text-secondary);
-  font-size: 0.95rem;
-}
-
-.warning-text {
-  color: var(--text-muted);
-  font-size: 0.85rem;
-  margin-top: 0.5rem;
-}
-
-.confirm-footer {
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.75rem;
-  padding: 1.25rem;
-  background-color: var(--bg-secondary);
-  border-top: 1px solid var(--border-color);
 }
 
 .btn-danger {

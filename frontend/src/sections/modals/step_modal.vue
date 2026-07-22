@@ -2,32 +2,32 @@
   <div class="crud-modal-backdrop" @click.self="$emit('close')">
     <div class="crud-modal">
       <header class="modal-header">
-        <h2>{{ isEditMode ? 'Edit Step' : 'Add Step' }}</h2>
+        <h2>{{ isEditMode ? 'Edit Step' : 'Create Step' }}</h2>
         <span class="modal-close" @click="$emit('close')">&times;</span>
       </header>
 
       <form @submit.prevent="submitForm" class="modal-form">
-        <!-- Title -->
+        <!-- Step Title -->
         <div class="form-group">
           <label for="step-title">Title <span class="required">*</span></label>
           <input 
             id="step-title" 
             type="text" 
             v-model="form.title" 
-            placeholder="Step title"
+            placeholder="Step Title" 
             required
           />
         </div>
 
-        <!-- Task Type -->
+        <!-- Task Type (Step level) -->
         <div class="form-group">
           <label>Task Type</label>
-          <div class="task-type-selector">
-            <button 
-              v-for="type in taskTypes" 
+          <div class="task-type-toggle-group">
+            <button
+              v-for="type in taskTypes"
               :key="type.value"
               type="button"
-              :class="['type-btn', type.value.toLowerCase(), { active: form.task_type === type.value }]"
+              :class="['toggle-btn', { active: form.task_type === type.value }]"
               @click="form.task_type = type.value"
             >
               {{ type.label }}
@@ -35,27 +35,27 @@
           </div>
         </div>
 
-        <!-- Details (dynamic list) -->
+        <!-- Details List -->
         <div class="form-group">
-          <label>Details</label>
-          <div class="details-list">
+          <label>Details Checklist</label>
+          <div class="details-checklist">
             <div 
               v-for="(detail, idx) in form.details" 
-              :key="idx"
-              class="detail-item"
+              :key="idx" 
+              class="detail-row"
             >
               <input 
                 type="text" 
-                v-model="detail.text"
-                placeholder="Detail text..."
-                class="detail-input"
+                v-model="detail.text" 
+                placeholder="Checklist detail description..." 
+                required
               />
-              <div class="detail-type-mini">
-                <button 
-                  v-for="type in taskTypes" 
+              <div class="task-type-toggle-group mini">
+                <button
+                  v-for="type in taskTypes"
                   :key="type.value"
                   type="button"
-                  :class="['mini-type-btn', type.value.toLowerCase(), { active: detail.task_type === type.value }]"
+                  :class="['toggle-btn', { active: detail.task_type === type.value }]"
                   @click="detail.task_type = type.value"
                 >
                   {{ type.label }}
@@ -82,13 +82,14 @@
             @change="handleFileChange"
             class="file-input"
           />
-          <div class="file-preview-list" v-if="previewUrls.length > 0">
+          <div class="file-preview-list" v-if="images.length > 0">
             <div 
-              v-for="(url, idx) in previewUrls" 
-              :key="idx" 
+              v-for="img in images" 
+              :key="img.id" 
               class="preview-item"
             >
-              <img :src="resolveAssetUrl(url)" alt="Preview" />
+              <img :src="resolveAssetUrl(img.url)" alt="Preview" />
+              <button type="button" class="remove-img-btn" @click="removeImage(img.id)">&times;</button>
             </div>
           </div>
         </div>
@@ -157,6 +158,12 @@ interface Step {
   image_urls: string[];
 }
 
+interface ImageItem {
+  id: string;
+  url: string;
+  file: File | null;
+}
+
 const props = defineProps<{
   isEditMode: boolean;
   step: Step | null;
@@ -180,11 +187,15 @@ const form = reactive({
   details: [] as StepDetail[],
 });
 
-const selectedFiles = ref<File[]>([]);
-const previewUrls = ref<string[]>([]);
+const images = ref<ImageItem[]>([]);
 const showConfirmModal = ref(false);
 
-const initialState = reactive({ title: '', task_type: 'NONE', detailsJson: '' });
+const initialState = reactive({
+  title: '',
+  task_type: 'NONE',
+  detailsJson: '',
+  imageUrlsJson: ''
+});
 
 watch(
   () => props.step,
@@ -193,17 +204,21 @@ watch(
       form.title = s.title;
       form.task_type = s.task_type || 'NONE';
       form.details = s.details.map(d => ({ ...d }));
-      previewUrls.value = [...(s.image_urls || [])];
+      images.value = (s.image_urls || []).map(url => ({
+        id: 'existing-' + Math.random().toString(36).substring(2, 9),
+        url,
+        file: null
+      }));
     } else {
       form.title = '';
       form.task_type = 'NONE';
       form.details = [];
-      previewUrls.value = [];
+      images.value = [];
     }
-    selectedFiles.value = [];
     initialState.title = form.title;
     initialState.task_type = form.task_type;
     initialState.detailsJson = JSON.stringify(form.details);
+    initialState.imageUrlsJson = JSON.stringify((s?.image_urls || []));
   },
   { immediate: true }
 );
@@ -220,29 +235,61 @@ const handleFileChange = (e: Event) => {
   const target = e.target as HTMLInputElement;
   if (target.files) {
     const files = Array.from(target.files);
-    selectedFiles.value = files;
-    previewUrls.value = files.map(f => URL.createObjectURL(f));
+    files.forEach(file => {
+      images.value.push({
+        id: 'new-' + Math.random().toString(36).substring(2, 9),
+        url: URL.createObjectURL(file),
+        file
+      });
+    });
+    target.value = '';
+  }
+};
+
+const removeImage = (id: string) => {
+  const idx = images.value.findIndex(img => img.id === id);
+  if (idx !== -1) {
+    const img = images.value[idx];
+    if (img.file && img.url.startsWith('blob:')) {
+      URL.revokeObjectURL(img.url);
+    }
+    images.value.splice(idx, 1);
   }
 };
 
 const isSaveDisabled = computed(() => {
   if (!form.title.trim()) return true;
   if (!props.isEditMode) return false;
-  if (selectedFiles.value.length > 0) return false;
-  return (
-    form.title === initialState.title &&
-    form.task_type === initialState.task_type &&
-    JSON.stringify(form.details) === initialState.detailsJson
-  );
+
+  const currentExistingUrls = images.value.filter(img => !img.file).map(img => img.url);
+  const hasNewFiles = images.value.some(img => img.file !== null);
+
+  const titleChanged = form.title !== initialState.title;
+  const taskTypeChanged = form.task_type !== initialState.task_type;
+  const detailsChanged = JSON.stringify(form.details) !== initialState.detailsJson;
+  const imagesChanged = hasNewFiles || JSON.stringify(currentExistingUrls) !== initialState.imageUrlsJson;
+
+  return !titleChanged && !taskTypeChanged && !detailsChanged && !imagesChanged;
 });
 
 const submitForm = () => {
   const formData = new FormData();
   formData.append('title', form.title);
   formData.append('task_type', form.task_type);
-  // Serialize details as JSON string to pass via FormData
   formData.append('details', JSON.stringify(form.details));
-  selectedFiles.value.forEach(f => formData.append('files', f));
+
+  const existingImages = images.value
+    .filter(img => !img.file)
+    .map(img => img.url);
+
+  formData.append('existing_images', JSON.stringify(existingImages));
+
+  images.value
+    .filter(img => img.file !== null)
+    .forEach(img => {
+      formData.append('files', img.file!);
+    });
+
   emit('submit', formData);
 };
 
@@ -257,6 +304,51 @@ const confirmDelete = () => {
 </script>
 
 <style scoped>
+.preview-item {
+  position: relative;
+  width: 80px;
+  height: 45px;
+  border-radius: 0.25rem;
+  border: 1px solid var(--border-color);
+}
+
+.preview-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 0.25rem;
+}
+
+.remove-img-btn {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background-color: #ef4444;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  font-size: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+  transition: background-color var(--transition-speed) ease;
+}
+
+.remove-img-btn:hover {
+  background-color: #dc2626;
+}
+
+.file-preview-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+}
+
 .crud-modal-backdrop {
   position: fixed;
   top: 0; left: 0;
@@ -273,11 +365,10 @@ const confirmDelete = () => {
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
   width: 100%;
-  max-width: 560px;
-  max-height: 90vh;
-  overflow-y: auto;
+  max-width: 600px;
   border-radius: 1rem;
   box-shadow: var(--shadow-lg);
+  overflow: hidden;
   animation: modalSlide 0.25s ease;
 }
 
@@ -292,10 +383,6 @@ const confirmDelete = () => {
   justify-content: space-between;
   padding: 1.5rem;
   border-bottom: 1px solid var(--border-color);
-  position: sticky;
-  top: 0;
-  background-color: var(--bg-secondary);
-  z-index: 1;
 }
 
 .modal-header h2 {
@@ -344,109 +431,117 @@ const confirmDelete = () => {
   box-sizing: border-box;
 }
 
-.form-group input[type="text"]:focus { border-color: var(--accent-color); }
+.form-group input[type="text"]:focus {
+  border-color: var(--accent-color);
+}
 
-/* Task Type Selector */
-.task-type-selector {
+/* Task Type Toggle Button styles */
+.task-type-toggle-group {
   display: flex;
   gap: 0.5rem;
 }
 
-.type-btn {
-  font-family: inherit;
-  font-size: 0.8rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  padding: 0.4rem 0.9rem;
-  border-radius: 4px;
-  cursor: pointer;
+.toggle-btn {
+  flex: 1;
+  background-color: var(--bg-tertiary);
   border: 1px solid var(--border-color);
-  background: transparent;
-  color: var(--text-muted);
+  color: var(--text-secondary);
+  padding: 0.6rem;
+  border-radius: 0.5rem;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 0.9rem;
   transition: all var(--transition-speed) ease;
 }
 
-.type-btn.none.active   { background: rgba(255,255,255,0.08); color: var(--text-primary); border-color: var(--text-muted); }
-.type-btn.asset.active  { background: rgba(245,158,11,0.15);  color: #fbbf24; border-color: rgba(245,158,11,0.3); }
-.type-btn.code.active   { background: rgba(99,102,241,0.15);  color: #818cf8; border-color: rgba(99,102,241,0.3); }
-.type-btn:hover         { border-color: var(--text-secondary); color: var(--text-primary); }
+.toggle-btn:hover {
+  border-color: var(--text-muted);
+  color: var(--text-primary);
+}
 
-/* Details list */
-.details-list {
+.toggle-btn.active {
+  background-color: rgba(99, 102, 241, 0.15);
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
+/* Checklist details */
+.details-checklist {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
-  margin-bottom: 0.6rem;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
 }
 
-.detail-item {
+.detail-row {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-}
-
-.detail-input {
-  flex: 1;
-}
-
-.detail-type-mini {
-  display: flex;
-  gap: 0.25rem;
-  flex-shrink: 0;
-}
-
-.mini-type-btn {
-  font-family: inherit;
-  font-size: 0.65rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  padding: 0.2rem 0.4rem;
-  border-radius: 3px;
-  cursor: pointer;
+  gap: 0.75rem;
+  background-color: rgba(255, 255, 255, 0.02);
   border: 1px solid var(--border-color);
-  background: transparent;
-  color: var(--text-muted);
-  transition: all var(--transition-speed) ease;
+  padding: 0.75rem;
+  border-radius: 0.75rem;
 }
 
-.mini-type-btn.none.active   { background: rgba(255,255,255,0.08); color: var(--text-primary); }
-.mini-type-btn.asset.active  { background: rgba(245,158,11,0.15);  color: #fbbf24; border-color: rgba(245,158,11,0.4); }
-.mini-type-btn.code.active   { background: rgba(99,102,241,0.15);  color: #818cf8; border-color: rgba(99,102,241,0.4); }
+.detail-row input {
+  flex: 1;
+  background-color: var(--bg-tertiary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  font-family: inherit;
+  font-size: 0.9rem;
+  outline: none;
+}
+
+.detail-row input:focus {
+  border-color: var(--accent-color);
+}
+
+.task-type-toggle-group.mini {
+  flex-shrink: 0;
+  width: 200px;
+}
+
+.task-type-toggle-group.mini .toggle-btn {
+  padding: 0.4rem;
+  font-size: 0.8rem;
+}
 
 .remove-detail-btn {
   background: none;
   border: none;
-  color: var(--text-muted);
+  color: var(--text-secondary);
+  font-size: 1.5rem;
   cursor: pointer;
-  font-size: 1.2rem;
-  padding: 0 0.25rem;
   transition: color var(--transition-speed) ease;
-  flex-shrink: 0;
 }
 
-.remove-detail-btn:hover { color: #ef4444; }
+.remove-detail-btn:hover {
+  color: #ef4444;
+}
 
 .add-detail-btn {
-  font-family: inherit;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: var(--accent-color);
-  background: none;
-  border: 1px dashed var(--accent-color);
+  background-color: transparent;
+  border: 1px dashed var(--border-color);
+  color: var(--text-secondary);
+  padding: 0.6rem 1rem;
   border-radius: 0.5rem;
-  padding: 0.5rem 1rem;
   cursor: pointer;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 0.85rem;
   transition: all var(--transition-speed) ease;
-  width: 100%;
-  margin-top: 0.25rem;
 }
 
 .add-detail-btn:hover {
-  background-color: rgba(99, 102, 241, 0.06);
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+  background-color: rgba(99, 102, 241, 0.02);
 }
 
-/* File Upload */
 .file-input {
   display: block;
   width: 100%;
@@ -454,27 +549,6 @@ const confirmDelete = () => {
   font-size: 0.9rem;
 }
 
-.file-preview-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin-top: 0.75rem;
-}
-
-.preview-item {
-  width: 80px;
-  height: 45px;
-  border-radius: 0.25rem;
-  overflow: hidden;
-  border: 1px solid var(--border-color);
-}
-
-.preview-item img {
-  width: 100%; height: 100%;
-  object-fit: cover;
-}
-
-/* Footer */
 .modal-footer {
   display: flex;
   align-items: center;
@@ -513,7 +587,10 @@ const confirmDelete = () => {
   color: white;
 }
 .btn-save:hover:not(:disabled) { background-color: var(--accent-hover); }
-.btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-save:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
 .btn-delete {
   background-color: rgba(239, 68, 68, 0.15);
@@ -522,7 +599,7 @@ const confirmDelete = () => {
 }
 .btn-delete:hover { background-color: #ef4444; color: white; }
 
-/* Confirmation Modal */
+/* Custom Delete Confirmation Modal */
 .confirm-modal-backdrop {
   position: fixed;
   top: 0; left: 0;
@@ -549,14 +626,24 @@ const confirmDelete = () => {
   padding: 1.25rem;
   border-bottom: 1px solid var(--border-color);
 }
-.confirm-header h3 { font-size: 1.1rem; font-weight: 700; color: #ef4444; }
+
+.confirm-header h3 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #ef4444;
+}
 
 .confirm-body {
   padding: 1.5rem 1.25rem;
   color: var(--text-secondary);
   font-size: 0.95rem;
 }
-.warning-text { color: var(--text-muted); font-size: 0.85rem; margin-top: 0.5rem; }
+
+.warning-text {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+}
 
 .confirm-footer {
   display: flex;
@@ -567,6 +654,9 @@ const confirmDelete = () => {
   border-top: 1px solid var(--border-color);
 }
 
-.btn-danger { background-color: #ef4444; color: white; }
+.btn-danger {
+  background-color: #ef4444;
+  color: white;
+}
 .btn-danger:hover { background-color: #dc2626; }
 </style>

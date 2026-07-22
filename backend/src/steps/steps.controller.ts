@@ -96,14 +96,32 @@ export class StepsController {
     if (updateDto.task_type !== undefined) step.task_type = updateDto.task_type;
     if (updateDto.details !== undefined) step.details = updateDto.details;
 
-    if (files && files.length > 0) {
-      const urls = await this.cloudinaryService.uploadFiles(files);
-      step.images = urls.map((url) => {
-        const img = new StepImage();
-        img.url = url;
-        return img;
-      });
+    let existingUrls: string[] = [];
+    if (updateDto.existing_images) {
+      try {
+        existingUrls = JSON.parse(updateDto.existing_images);
+      } catch {
+        existingUrls = Array.isArray(updateDto.existing_images)
+          ? updateDto.existing_images
+          : [updateDto.existing_images];
+      }
+    } else if (updateDto.existing_images === '') {
+      existingUrls = [];
+    } else {
+      existingUrls = (step.images || []).map((img) => img.url);
     }
+
+    const newUrls = files && files.length > 0
+      ? await this.cloudinaryService.uploadFiles(files)
+      : [];
+
+    const finalUrls = [...existingUrls, ...newUrls];
+
+    step.images = finalUrls.map((url) => {
+      const img = new StepImage();
+      img.url = url;
+      return img;
+    });
 
     const saved = await this.stepRepository.save(step);
     await this.updatePhaseStatus(step.phase_id);

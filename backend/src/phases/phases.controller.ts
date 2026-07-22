@@ -135,13 +135,12 @@ export class PhasesController {
       image_urls: saved.images.map((img) => img.url),
     };
   }
-
   @UseGuards(JwtAuthGuard)
   @Patch(':id')
   @UseInterceptors(FilesInterceptor('files', 10, { storage: memoryStorage() }))
   async update(
     @Param('id') id: string,
-    @Body() updateDto: CreatePhaseDto,
+    @Body() updateDto: any,
     @UploadedFiles() files: Array<Express.Multer.File>,
   ) {
     const objectId = new ObjectId(id);
@@ -153,14 +152,32 @@ export class PhasesController {
     if (updateDto.title !== undefined) phase.title = updateDto.title;
     if (updateDto.description !== undefined) phase.description = updateDto.description;
 
-    if (files && files.length > 0) {
-      const urls = await this.cloudinaryService.uploadFiles(files);
-      phase.images = urls.map((url) => {
-        const img = new PhaseImage();
-        img.url = url;
-        return img;
-      });
+    let existingUrls: string[] = [];
+    if (updateDto.existing_images) {
+      try {
+        existingUrls = JSON.parse(updateDto.existing_images);
+      } catch {
+        existingUrls = Array.isArray(updateDto.existing_images)
+          ? updateDto.existing_images
+          : [updateDto.existing_images];
+      }
+    } else if (updateDto.existing_images === '') {
+      existingUrls = [];
+    } else {
+      existingUrls = (phase.images || []).map((img) => img.url);
     }
+
+    const newUrls = files && files.length > 0
+      ? await this.cloudinaryService.uploadFiles(files)
+      : [];
+
+    const finalUrls = [...existingUrls, ...newUrls];
+
+    phase.images = finalUrls.map((url) => {
+      const img = new PhaseImage();
+      img.url = url;
+      return img;
+    });
 
     const saved = await this.phaseRepository.save(phase);
     return {
