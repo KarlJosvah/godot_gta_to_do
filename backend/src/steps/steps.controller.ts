@@ -29,6 +29,8 @@ export class StepsController {
     const steps = await this.stepRepository.find({
       where: { phase_id: phaseId },
     });
+    // Sort by order field; fall back to stable insertion order
+    steps.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
     return steps.map((step) => ({
       id: step._id.toString(),
       phase_id: phaseId,
@@ -36,8 +38,20 @@ export class StepsController {
       task_type: step.task_type || 'NONE',
       details: JSON.parse(step.details || '[]'),
       done: step.done,
+      order: step.order ?? 0,
       image_urls: (step.images || []).map((img) => img.url),
     }));
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('steps/reorder')
+  async reorder(@Body() body: { items: { id: string; order: number }[] }) {
+    const updates = body.items.map(async ({ id, order }) => {
+      const objectId = new ObjectId(id);
+      await this.stepRepository.update({ _id: objectId } as any, { order });
+    });
+    await Promise.all(updates);
+    return { success: true };
   }
 
   @UseGuards(JwtAuthGuard)

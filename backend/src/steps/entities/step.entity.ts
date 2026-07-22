@@ -26,6 +26,9 @@ export class Step {
   @Column({ default: 0 })
   done!: number; // 0 or 1
 
+  @Column({ default: 0 })
+  order!: number; // sort position within phase
+
   @Column(() => StepImage)
   images!: StepImage[];
 }

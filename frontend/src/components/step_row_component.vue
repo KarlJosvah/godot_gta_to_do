@@ -1,5 +1,14 @@
 <template>
   <div :class="['step-card', { done: step.done === 1 }]">
+    <!-- Drag handle — only visible to logged-in users -->
+    <div v-if="isLoggedIn" class="drag-handle" title="Drag to reorder"
+         @mousedown.stop.prevent="$emit('drag-handle-mousedown', $event)">
+      <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+        <circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/>
+        <circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/>
+        <circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/>
+      </svg>
+    </div>
     <div class="checkbox-row-wrapper">
       <label class="checkbox-container">
         <input 
@@ -86,17 +95,46 @@ defineEmits<{
   (e: 'toggle', id: string): void;
   (e: 'open-lightbox', url: string, caption: string): void;
   (e: 'edit-step', step: Step): void;
+  (e: 'drag-handle-mousedown', event: MouseEvent): void;
 }>();
 </script>
 
 <style scoped>
 .step-card {
+  position: relative;
   background-color: var(--bg-secondary);
   border: 1px solid var(--border-color);
   border-radius: 1rem;
   padding: 2rem;
   box-shadow: var(--shadow-sm);
   transition: border-color var(--transition-speed) ease;
+}
+
+.drag-handle {
+  position: absolute;
+  top: 50%;
+  left: -28px;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  opacity: 0;
+  cursor: grab;
+  padding: 4px;
+  border-radius: 4px;
+  transition: opacity var(--transition-speed) ease, color var(--transition-speed) ease;
+  display: flex;
+  align-items: center;
+}
+
+.step-card:hover .drag-handle {
+  opacity: 1;
+}
+
+.drag-handle:hover {
+  color: var(--accent-color);
+}
+
+.drag-handle:active {
+  cursor: grabbing;
 }
 
 .step-card.done {
