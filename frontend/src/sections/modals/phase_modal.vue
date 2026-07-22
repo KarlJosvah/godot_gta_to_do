@@ -28,21 +28,27 @@
           ></textarea>
         </div>
 
-        <!-- Image Upload Input Area -->
+        <!-- Image Section -->
         <div class="form-group">
-          <label for="phase-files">Upload Images</label>
-          <input 
-            id="phase-files" 
-            type="file" 
-            multiple 
-            accept="image/*"
-            @change="handleFileChange"
-            class="file-input"
-          />
+          <label>Images</label>
+          <div class="upload-row">
+            <!-- Hidden real input, triggered by label -->
+            <label for="phase-files" class="btn btn-upload">Upload Files</label>
+            <input
+              id="phase-files"
+              type="file"
+              multiple
+              accept="image/*"
+              @change="handleFileChange"
+              style="display: none"
+            />
+            <span class="or-divider">or choose from</span>
+            <button type="button" class="btn btn-gallery" @click="showGallery = true">Gallery</button>
+          </div>
           <div class="file-preview-list" v-if="images.length > 0">
-            <div 
-              v-for="img in images" 
-              :key="img.id" 
+            <div
+              v-for="img in images"
+              :key="img.id"
               class="preview-item"
             >
               <img :src="resolveAssetUrl(img.url)" alt="Preview Image" />
@@ -82,6 +88,13 @@
       </form>
     </div>
 
+    <!-- Gallery Modal -->
+    <GalleryModal
+      v-if="showGallery"
+      @close="showGallery = false"
+      @select="addFromGallery"
+    />
+
     <!-- Nested Custom Delete Confirmation Modal -->
     <div v-if="showConfirmModal" class="confirm-modal-backdrop" @click.self="showConfirmModal = false">
       <div class="confirm-modal">
@@ -104,6 +117,7 @@
 <script setup lang="ts">
 import { reactive, computed, watch, ref } from 'vue';
 import { resolveAssetUrl } from '../../config';
+import GalleryModal from './GalleryModal.vue';
 
 interface Phase {
   id: string;
@@ -137,6 +151,7 @@ const form = reactive({
 
 const images = ref<ImageItem[]>([]);
 const showConfirmModal = ref(false);
+const showGallery = ref(false);
 
 // Capture initial state to track alterations
 const initialFormState = reactive({
@@ -193,6 +208,21 @@ const removeImage = (id: string) => {
       URL.revokeObjectURL(img.url);
     }
     images.value.splice(idx, 1);
+  }
+};
+
+const addFromGallery = (urls: string[]) => {
+  showGallery.value = false;
+  const existing = new Set(images.value.map(img => img.url));
+  for (const url of urls) {
+    if (!existing.has(url)) {
+      images.value.push({
+        id: 'gallery-' + Math.random().toString(36).substring(2, 9),
+        url,
+        file: null
+      });
+      existing.add(url);
+    }
   }
 };
 
@@ -280,6 +310,58 @@ const confirmDelete = () => {
 
 .remove-img-btn:hover {
   background-color: #dc2626;
+}
+
+.upload-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.btn-upload {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background-color: var(--bg-tertiary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-speed) ease;
+  user-select: none;
+}
+.btn-upload:hover {
+  border-color: var(--accent-color);
+  color: var(--accent-color);
+}
+
+.or-divider {
+  font-size: 0.82rem;
+  color: var(--text-muted, #6b7280);
+}
+
+.btn-gallery {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  background-color: rgba(99, 102, 241, 0.1);
+  color: var(--accent-color);
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  padding: 0.5rem 1rem;
+  border-radius: 0.5rem;
+  font-family: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-speed) ease;
+}
+.btn-gallery:hover {
+  background-color: rgba(99, 102, 241, 0.2);
 }
 
 .file-preview-list {
